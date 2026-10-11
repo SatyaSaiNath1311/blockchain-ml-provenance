@@ -29,36 +29,53 @@ def test_valid_csv_upload_and_retrieval(isolated_storage):
     )
 
     assert response.status_code == 201
-    data = response.json()
+    payload = response.json()
+    assert "metadata" in payload
+    assert "receipt" in payload
 
+    data = payload["metadata"]
     dataset_id = data["dataset_id"]
+    version_id = data["version_id"]
+
     assert data["filename"] == "training_sample.csv"
     assert data["size_bytes"] == len(csv_content)
     assert data["num_chunks"] == 4  # 1 header + 3 data rows
     assert "file_hash" in data
     assert "merkle_root" in data
     assert "metadata_digest" in data
+    assert data["provenance"]["operation_type"] == "ingest"
 
     # Verify physical file existence in isolated temporary storage
-    uploaded_file = isolated_storage / "uploads" / dataset_id / "training_sample.csv"
+    uploaded_file = isolated_storage / "uploads" / dataset_id / version_id / "training_sample.csv"
     assert uploaded_file.exists()
     assert uploaded_file.read_bytes() == csv_content
 
     # Verify tree existence
-    tree_file = isolated_storage / "trees" / f"{dataset_id}.json"
+    tree_file = isolated_storage / "trees" / f"{version_id}.json"
     assert tree_file.exists()
 
     # Verify metadata existence
-    meta_file = isolated_storage / "metadata" / f"{dataset_id}.json"
+    meta_file = isolated_storage / "metadata" / f"{version_id}.json"
     assert meta_file.exists()
+
+    # Verify receipt existence
+    receipt_file = isolated_storage / "receipts" / f"{version_id}.json"
+    assert receipt_file.exists()
 
     # Test GET /datasets/{id}
     get_res = client.get(f"/datasets/{dataset_id}")
     assert get_res.status_code == 200
     get_data = get_res.json()
     assert get_data["dataset_id"] == dataset_id
-    assert get_data["merkle_root"] == data["merkle_root"]
-    assert get_data["metadata_digest"] == data["metadata_digest"]
+    assert version_id in get_data["versions"]
+
+    # Test GET /versions/{version_id}
+    v_res = client.get(f"/versions/{version_id}")
+    assert v_res.status_code == 200
+    v_data = v_res.json()
+    assert v_data["version_id"] == version_id
+    assert v_data["metadata_digest_matches_chain"] is True
+    assert v_data["on_chain"]["num_chunks"] == 4
 
 
 def test_reject_empty_file():
@@ -100,7 +117,6 @@ def test_reject_path_traversal():
 
 def test_reject_unparseable_csv():
     """Reject corrupt/unparseable CSV files."""
-    # Malformed NUL bytes / invalid binary pretending to be CSV
     corrupt_content = b"\x00\xff\xfe\x00malformed_csv_binary"
     response = client.post(
         "/datasets",
@@ -112,7 +128,6 @@ def test_reject_unparseable_csv():
 
 def test_reject_file_exceeding_size_limit(monkeypatch):
     """Reject file exceeding configured MAX_UPLOAD_SIZE_BYTES limit."""
-    # Temporarily set limit to 100 bytes
     monkeypatch.setenv("MAX_UPLOAD_SIZE_BYTES", "100")
 
     large_content = b"col1,col2\n" + b"1,2\n" * 50  # ~210 bytes
@@ -129,6 +144,5 @@ def test_get_nonexistent_dataset():
     response = client.get("/datasets/00000000-0000-0000-0000-000000000000")
     assert response.status_code == 404
 
-    # Invalid UUID format returns 404
     bad_id_res = client.get("/datasets/not-a-valid-uuid")
     assert bad_id_res.status_code == 404

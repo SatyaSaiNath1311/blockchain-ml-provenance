@@ -39,13 +39,13 @@ Validation: Identical bytes give identical hashes; a changed byte gives a differ
 Validation: Valid fingerprints and runs are recorded; invalid operations are rejected.
 
 ## Phase 4: Versioning and provenance
-- [ ] Step 27. Register the original dataset as Version 1.
-- [ ] Step 28. Create new versions without overwriting earlier ones.
-- [ ] Step 29. Link each new version to its parent.
-- [ ] Step 30. Record preprocessing operations, parameters, software versions, code commit hash, and timestamps.
-- [ ] Step 31. Compute a digest of the provenance metadata and anchor it on-chain.
-- [ ] Step 32. Implement lineage retrieval from the original through all later versions.
-- [ ] Step 33. Implement dataset and version lookup APIs.
+- [x] Step 27. Register the original dataset as Version 1.
+- [x] Step 28. Create new versions without overwriting earlier ones.
+- [x] Step 29. Link each new version to its parent.
+- [x] Step 30. Record preprocessing operations, parameters, software versions, code commit hash, and timestamps.
+- [x] Step 31. Compute a digest of the provenance metadata and anchor it on-chain.
+- [x] Step 32. Implement lineage retrieval from the original through all later versions.
+- [x] Step 33. Implement dataset and version lookup APIs.
 Validation: The full version history and the origin of any version can be reconstructed.
 
 ## Phase 5: Integrity verification and tampering
