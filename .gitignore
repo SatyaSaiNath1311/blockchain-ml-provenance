@@ -26,6 +26,7 @@ blockchain/artifacts/
 blockchain/cache/
 blockchain/typechain/
 blockchain/typechain-types/
+backend/contracts/deployment.json
 
 # Storage: ignore everything under storage/ except directory structure and .gitkeep files
 storage/**

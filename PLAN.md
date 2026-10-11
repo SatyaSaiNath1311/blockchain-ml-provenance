@@ -27,15 +27,15 @@ Validation: Frontend runs, backend health check responds, Python connects to the
 Validation: Identical bytes give identical hashes; a changed byte gives a different hash and identifies the affected chunk.
 
 ## Phase 3: Smart contract
-- [ ] Step 18. Define the provenance record in Solidity: dataset ID, version ID, parent version, file hash, Merkle root, metadata digest, submitter, timestamp.
-- [ ] Step 19. Implement dataset and version registration.
-- [ ] Step 20. Add registration events.
-- [ ] Step 21. Implement read functions for versions and provenance records.
-- [ ] Step 22. Implement `recordTrainingRun` storing the run ID, dataset version ID, and an experiment digest.
-- [ ] Step 23. Restrict writes to an authorized owner address, reject duplicate version IDs, and require the parent version to exist.
-- [ ] Step 24. Write contract tests: valid registration, duplicate IDs, unauthorized calls, missing parent, version relationships, run recording.
-- [ ] Step 25. Deploy to the local Hardhat network.
-- [ ] Step 26. Export the ABI and address to the backend config.
+- [x] Step 18. Define the provenance record in Solidity: dataset ID, version ID, parent version, file hash, Merkle root, metadata digest, submitter, timestamp.
+- [x] Step 19. Implement dataset and version registration.
+- [x] Step 20. Add registration events.
+- [x] Step 21. Implement read functions for versions and provenance records.
+- [x] Step 22. Implement `recordTrainingRun` storing the run ID, dataset version ID, and an experiment digest.
+- [x] Step 23. Restrict writes to an authorized owner address, reject duplicate version IDs, and require the parent version to exist.
+- [x] Step 24. Write contract tests: valid registration, duplicate IDs, unauthorized calls, missing parent, version relationships, run recording.
+- [x] Step 25. Deploy to the local Hardhat network.
+- [x] Step 26. Export the ABI and address to the backend config.
 Validation: Valid fingerprints and runs are recorded; invalid operations are rejected.
 
 ## Phase 4: Versioning and provenance
