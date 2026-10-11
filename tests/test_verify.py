@@ -436,6 +436,21 @@ def test_missing_metadata_file_returns_not_verifiable_with_null(deployed_fresh_c
     assert res["checks"]["merkle_root_match"] is True
 
 
+def test_clean_file_plus_deleted_tree_returns_not_verifiable(clean_dataset_setup):
+    """Clean file with tree file deleted gives NOT_VERIFIABLE with tree_integrity=None and file_hash_match=True."""
+    storage_dir = clean_dataset_setup["storage_dir"]
+    v2_id = clean_dataset_setup["v2_id"]
+
+    tree_file = storage_dir / "trees" / f"{v2_id}.json"
+    tree_file.unlink()
+
+    res = verify_version(v2_id, storage_dir=storage_dir)
+    assert res["status"] == "NOT_VERIFIABLE"
+    assert res["checks"]["tree_integrity"] is None
+    assert res["checks"]["file_hash_match"] is True
+    assert res["details"]["localization_available"] is False
+
+
 def test_tampered_file_plus_deleted_tree_gives_tampering_detected(clean_dataset_setup):
     """Tampered file + deleted tree returns TAMPERING_DETECTED (not NOT_VERIFIABLE) with tree_integrity=None."""
     storage_dir = clean_dataset_setup["storage_dir"]
@@ -455,6 +470,26 @@ def test_tampered_file_plus_deleted_tree_gives_tampering_detected(clean_dataset_
     assert res["checks"]["file_hash_match"] is False
     assert res["checks"]["tree_integrity"] is None
     assert res["details"]["localization_available"] is False
+
+
+def test_tampered_file_plus_deleted_metadata_gives_tampering_detected(clean_dataset_setup):
+    """Tampered file + deleted metadata file returns TAMPERING_DETECTED with metadata_digest_match=None."""
+    storage_dir = clean_dataset_setup["storage_dir"]
+    dataset_id = clean_dataset_setup["dataset_id"]
+    v2_id = clean_dataset_setup["v2_id"]
+
+    # 1. Tamper file
+    v2_csv = list((storage_dir / "uploads" / dataset_id / v2_id).iterdir())[0]
+    modify_cells(v2_csv, fraction=0.5)
+
+    # 2. Delete metadata file
+    meta_file = storage_dir / "metadata" / f"{v2_id}.json"
+    meta_file.unlink()
+
+    res = verify_version(v2_id, storage_dir=storage_dir)
+    assert res["status"] == "TAMPERING_DETECTED"
+    assert res["checks"]["file_hash_match"] is False
+    assert res["checks"]["metadata_digest_match"] is None
 
 
 def test_malformed_version_id_endpoint():

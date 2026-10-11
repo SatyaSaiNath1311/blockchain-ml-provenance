@@ -374,6 +374,139 @@ class ChainClient:
         lineage.reverse()  # Root to target
         return lineage
 
+    @property
+    def deployment_block(self) -> int:
+        """Resolve contract deployment block number."""
+        if hasattr(self, "_custom_deployment_block") and self._custom_deployment_block is not None:
+            return self._custom_deployment_block
+        if self.deployment_path.exists():
+            try:
+                with open(self.deployment_path, "r", encoding="utf-8") as f:
+                    return int(json.load(f).get("blockNumber", 0))
+            except Exception:
+                return 0
+        return 0
+
+    def record_training_run(
+        self,
+        run_id: str | uuid.UUID,
+        dataset_version_id: str | uuid.UUID,
+        experiment_digest: str | bytes,
+    ) -> dict[str, Any]:
+        """Send recordTrainingRun transaction from owner account."""
+        contract = self.get_contract()
+        r_b32 = uuid_to_bytes32(run_id)
+        dv_b32 = uuid_to_bytes32(dataset_version_id)
+        ed_b32 = ensure_bytes32(experiment_digest)
+
+        accounts = self.w3.eth.accounts
+        if not accounts:
+            raise ChainUnavailable("No unlocked accounts available on blockchain node")
+        owner_account = accounts[0]
+
+        try:
+            # 1. Dry run via eth_call to detect reverts early and decode custom errors
+            contract.functions.recordTrainingRun(r_b32, dv_b32, ed_b32).call({"from": owner_account})
+
+            # 2. Send transaction
+            tx_hash = contract.functions.recordTrainingRun(r_b32, dv_b32, ed_b32).transact({"from": owner_account})
+            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=10)
+            if receipt.status != 1:
+                raise ContractRevert("TransactionFailed", message="Transaction status was 0")
+
+            return {
+                "tx_hash": receipt.transactionHash.hex(),
+                "block_number": receipt.blockNumber,
+                "gas_used": receipt.gasUsed,
+            }
+        except ContractRevert:
+            raise
+        except (ContractLogicError, ContractCustomError) as exc:
+            raise self._decode_revert(exc) from exc
+        except Exception as exc:
+            decoded = self._decode_revert(exc)
+            if decoded.error_name != "UnknownRevert":
+                raise decoded from exc
+            raise ChainError(f"recordTrainingRun failed: {exc}") from exc
+
+    def get_run(self, run_id: str | uuid.UUID) -> dict[str, Any]:
+        """Fetch full on-chain TrainingRunRecord struct."""
+        contract = self.get_contract()
+        r_b32 = uuid_to_bytes32(run_id)
+
+        try:
+            raw = contract.functions.getRun(r_b32).call()
+            # Struct: (runId, datasetVersionId, experimentDigest, submitter, timestamp)
+            return {
+                "run_id": bytes32_to_uuid(raw[0]),
+                "dataset_version_id": bytes32_to_uuid(raw[1]),
+                "experiment_digest": "0x" + raw[2].hex() if isinstance(raw[2], bytes) else str(raw[2]),
+                "submitter": raw[3],
+                "timestamp": raw[4],
+            }
+        except (ContractLogicError, ContractCustomError) as exc:
+            raise self._decode_revert(exc) from exc
+        except Exception as exc:
+            decoded = self._decode_revert(exc)
+            if decoded.error_name != "UnknownRevert":
+                raise decoded from exc
+            raise ChainError(f"getRun failed: {exc}") from exc
+
+    def run_exists(self, run_id: str | uuid.UUID) -> bool:
+        """Check if runId exists on-chain."""
+        contract = self.get_contract()
+        r_b32 = uuid_to_bytes32(run_id)
+        try:
+            return bool(contract.functions.runExists(r_b32).call())
+        except Exception as exc:
+            raise ChainError(f"runExists failed: {exc}") from exc
+
+    def get_runs_for_version(
+        self,
+        version_id: str | uuid.UUID,
+        from_block: int | None = None,
+    ) -> list[str]:
+        """Query TrainingRunRecorded events filtered by indexed datasetVersionId starting from deployment block."""
+        contract = self.get_contract()
+        v_b32 = uuid_to_bytes32(version_id)
+        start_block = from_block if from_block is not None else self.deployment_block
+
+        try:
+            event_filter = contract.events.TrainingRunRecorded.create_filter(
+                from_block=start_block,
+                to_block="latest",
+                argument_filters={"datasetVersionId": v_b32},
+            )
+            entries = event_filter.get_all_entries()
+            run_ids: list[str] = []
+            for entry in entries:
+                run_b32 = entry["args"]["runId"]
+                run_uuid = bytes32_to_uuid(run_b32)
+                if run_uuid and run_uuid not in run_ids:
+                    run_ids.append(run_uuid)
+            return run_ids
+        except Exception as exc:
+            # Fallback using direct eth.get_logs
+            try:
+                event_sig = self.w3.keccak(text="TrainingRunRecorded(bytes32,bytes32,bytes32,address,uint64)").hex()
+                topic_v = "0x" + v_b32.hex()
+                logs = self.w3.eth.get_logs({
+                    "fromBlock": start_block,
+                    "toBlock": "latest",
+                    "address": contract.address,
+                    "topics": [event_sig, None, topic_v],
+                })
+                run_ids = []
+                for log in logs:
+                    run_b32_hex = log["topics"][1].hex()
+                    run_b32 = bytes.fromhex(run_b32_hex[2:] if run_b32_hex.startswith("0x") else run_b32_hex)
+                    run_uuid = bytes32_to_uuid(run_b32)
+                    if run_uuid and run_uuid not in run_ids:
+                        run_ids.append(run_uuid)
+                return run_ids
+            except Exception as e2:
+                raise ChainError(f"get_runs_for_version failed: {exc} / fallback: {e2}") from exc
+
 
 # Default global instance
 default_chain_client = ChainClient()

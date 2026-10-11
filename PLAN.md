@@ -60,16 +60,16 @@ Validation: The full version history and the origin of any version can be recons
 Validation: Unmodified data passes, every modification fails, and results rely on the on-chain record, not an editable local hash file.
 
 ## Phase 6: ML pipeline integration
-- [ ] Step 42. Build the preprocessing pipeline with pandas and scikit-learn.
-- [ ] Step 43. Record missing-value handling, encoding, scaling, and other transformations.
-- [ ] Step 44. Register the processed dataset as a new version.
-- [ ] Step 45. Add a pre-training verification gate: training aborts if the dataset fails verification against the chain.
-- [ ] Step 46. Train a baseline model (Random Forest) on the selected version.
-- [ ] Step 47. Record the dataset version, preprocessing config, model parameters, random seed, and code revision.
-- [ ] Step 48. Store the model artifact and evaluation results off-chain.
-- [ ] Step 49. Anchor the experiment digest (config plus model hash) on-chain via `recordTrainingRun`.
-- [ ] Step 50. Implement experiment lookup and a reproducibility-check workflow.
-- [ ] Step 51. Test that the gate blocks training on tampered data and allows it on verified data.
+- [x] Step 42. Build the preprocessing pipeline with pandas and scikit-learn.
+- [x] Step 43. Record missing-value handling, encoding, scaling, and other transformations.
+- [x] Step 44. Register the processed dataset as a new version.
+- [x] Step 45. Add a pre-training verification gate: training aborts if the dataset fails verification against the chain.
+- [x] Step 46. Train a baseline model (Random Forest) on the selected version.
+- [x] Step 47. Record the dataset version, preprocessing config, model parameters, random seed, and code revision.
+- [x] Step 48. Store the model artifact and evaluation results off-chain.
+- [x] Step 49. Anchor the experiment digest (config plus model hash) on-chain via `recordTrainingRun`.
+- [x] Step 50. Implement experiment lookup and a reproducibility-check workflow.
+- [x] Step 51. Test that the gate blocks training on tampered data and allows it on verified data.
 Validation: Every experiment identifies the exact dataset version and configuration, and tampered data cannot reach training.
 
 ## Phase 7: Conventional versus blockchain evaluation

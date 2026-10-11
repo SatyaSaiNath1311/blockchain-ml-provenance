@@ -9,6 +9,7 @@ def generate_synthetic_csv(
     num_rows: int = 5000,
     seed: int = 42,
     duplicate_fraction: float = 0.03,
+    missing_rate: float = 0.0,
 ) -> Path:
     """Generate a reproducible synthetic ML classification dataset with exact duplicate rows."""
     rng = np.random.default_rng(seed)
@@ -66,12 +67,22 @@ def generate_synthetic_csv(
     else:
         df = base_df
 
+    # Inject missing values (NaN) into feature cells if requested
+    if missing_rate > 0.0:
+        feature_cols = ["age", "income", "credit_score", "education", "employment", "home_ownership", "loan_amount"]
+        # Convert integer columns to float or object so NaN can be stored
+        df["age"] = df["age"].astype(float)
+        df["credit_score"] = df["credit_score"].astype(float)
+        for col in feature_cols:
+            mask = rng.random(size=len(df)) < missing_rate
+            df.loc[mask, col] = np.nan
+
     output_path = Path(output_path).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
     print(
         f"[Dataset Generator] Created {len(df)} rows ({num_duplicates} exact duplicates, "
-        f"~{100 - duplicate_fraction * 100:.1f}% unique) at: {output_path} "
+        f"~{100 - duplicate_fraction * 100:.1f}% unique, missing_rate={missing_rate:.2f}) at: {output_path} "
         f"(size: {output_path.stat().st_size} bytes)"
     )
     return output_path
@@ -81,6 +92,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate synthetic ML tabular CSV.")
     parser.add_argument("--rows", type=int, default=5000, help="Number of rows (default: 5000)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
+    parser.add_argument(
+        "--missing-rate",
+        type=float,
+        default=0.0,
+        help="Fraction of feature cells to inject with NaN (default: 0.0)",
+    )
     parser.add_argument(
         "--output",
         type=str,
@@ -92,4 +109,5 @@ if __name__ == "__main__":
         output_path=Path(args.output).resolve(),
         num_rows=args.rows,
         seed=args.seed,
+        missing_rate=args.missing_rate,
     )

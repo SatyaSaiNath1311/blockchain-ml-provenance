@@ -26,9 +26,16 @@ from backend.chain import (
 from backend.fingerprint import (
     build_merkle_tree,
     compute_canonical_metadata_digest,
+    compute_file_hash,
     split_csv_into_chunks,
 )
-from backend.verify import verify_version
+from backend.verify import _strip_0x, verify_version
+from backend.ml_pipeline import (
+    IntegrityGateError,
+    preprocess_and_register,
+    train_on_version,
+    reproduce_training_run,
+)
 
 load_dotenv()
 
@@ -189,7 +196,7 @@ def health_check() -> dict[str, Any]:
     return {
         "status": "ok",
         "service": "ml-provenance-backend",
-        "phase": 5,
+        "phase": 6,
         "timestamp": time.time(),
     }
 
@@ -811,6 +818,226 @@ async def verify_version_endpoint_post(
             storage_dir=storage_root,
             chain_client=default_chain_client,
         )
+
+
+# -----------------------------------------------------------------------------
+# Phase 6: ML Pipeline, Experiment Anchoring & Reproducibility Endpoints
+# -----------------------------------------------------------------------------
+
+@app.post("/versions/{version_id}/preprocess", status_code=status.HTTP_201_CREATED)
+def preprocess_version_endpoint(version_id: str) -> dict[str, Any]:
+    """Deterministically clean a verified dataset version and register as child."""
+    try:
+        uuid.UUID(version_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Malformed version ID: {version_id}",
+        )
+
+    try:
+        if not default_chain_client.version_exists(version_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Version {version_id} not registered on blockchain",
+            )
+        storage_root = get_storage_dir()
+        return preprocess_and_register(
+            version_id=version_id,
+            storage_dir=storage_root,
+            chain_client=default_chain_client,
+        )
+    except IntegrityGateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "IntegrityGateError",
+                "message": str(exc),
+                "status": exc.status,
+                "verification_result": exc.verification_result,
+            },
+        ) from exc
+    except (ChainUnavailable, StaleDeployment) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post("/versions/{version_id}/train", status_code=status.HTTP_201_CREATED)
+def train_version_endpoint(
+    version_id: str,
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Verify integrity gate and train baseline model on dataset version."""
+    try:
+        uuid.UUID(version_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Malformed version ID: {version_id}",
+        )
+
+    try:
+        if not default_chain_client.version_exists(version_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Version {version_id} not registered on blockchain",
+            )
+        storage_root = get_storage_dir()
+        return train_on_version(
+            version_id=version_id,
+            config=config,
+            storage_dir=storage_root,
+            chain_client=default_chain_client,
+        )
+    except IntegrityGateError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "IntegrityGateError",
+                "message": str(exc),
+                "status": exc.status,
+                "verification_result": exc.verification_result,
+            },
+        ) from exc
+    except (ChainUnavailable, StaleDeployment) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+
+@app.get("/experiments/{run_id}")
+def get_experiment_endpoint(run_id: str) -> dict[str, Any]:
+    """Retrieve full on-chain and off-chain training run record."""
+    try:
+        uuid.UUID(run_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Malformed run ID: {run_id}",
+        )
+
+    try:
+        if not default_chain_client.run_exists(run_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Training run {run_id} not recorded on blockchain",
+            )
+        chain_run = default_chain_client.get_run(run_id)
+    except (ChainUnavailable, StaleDeployment) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    storage_root = get_storage_dir()
+    exp_path = storage_root / "experiments" / f"{run_id}.json"
+    if not exp_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment record for {run_id} not found off-chain",
+        )
+
+    with open(exp_path, "r", encoding="utf-8") as f:
+        record = json.load(f)
+
+    meta_copy = {k: v for k, v in record.items() if k != "experiment_digest"}
+    recomputed_digest = compute_canonical_metadata_digest(meta_copy)
+    on_chain_digest = _strip_0x(chain_run["experiment_digest"])
+    digest_matches = (recomputed_digest.lower() == on_chain_digest.lower())
+
+    # Check model artifact intactness (hashing only, no unpickling)
+    model_path = storage_root / "models" / run_id / "model.joblib"
+    model_artifact_intact = False
+    if model_path.exists():
+        actual_model_hash = compute_file_hash(model_path.read_bytes())
+        model_artifact_intact = (actual_model_hash.lower() == record.get("model_artifact_sha256", "").lower())
+
+    receipt_path = storage_root / "experiments" / f"{run_id}.receipt.json"
+    receipt = None
+    if receipt_path.exists():
+        try:
+            with open(receipt_path, "r", encoding="utf-8") as f:
+                receipt = json.load(f)
+        except Exception:
+            pass
+
+    return {
+        "run_id": run_id,
+        "dataset_version_id": chain_run["dataset_version_id"],
+        "on_chain": chain_run,
+        "experiment_record": record,
+        "receipt": receipt,
+        "experiment_digest_matches_chain": digest_matches,
+        "model_artifact_intact": model_artifact_intact,
+    }
+
+
+@app.get("/versions/{version_id}/experiments")
+def get_version_experiments_endpoint(version_id: str) -> list[str]:
+    """List training run IDs recorded for a dataset version directly from blockchain events."""
+    try:
+        uuid.UUID(version_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Malformed version ID: {version_id}",
+        )
+
+    try:
+        if not default_chain_client.version_exists(version_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Version {version_id} not registered on blockchain",
+            )
+        return default_chain_client.get_runs_for_version(version_id)
+    except (ChainUnavailable, StaleDeployment) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+
+@app.post("/experiments/{run_id}/reproduce")
+def reproduce_experiment_endpoint(run_id: str) -> dict[str, Any]:
+    """Execute verification-gated deterministic reproducibility check."""
+    try:
+        uuid.UUID(run_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Malformed run ID: {run_id}",
+        )
+
+    try:
+        if not default_chain_client.run_exists(run_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Training run {run_id} not recorded on blockchain",
+            )
+        storage_root = get_storage_dir()
+        return reproduce_training_run(
+            run_id=run_id,
+            storage_dir=storage_root,
+            chain_client=default_chain_client,
+        )
+    except (ChainUnavailable, StaleDeployment) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
 
 
 if __name__ == "__main__":
