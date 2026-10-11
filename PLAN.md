@@ -6,13 +6,13 @@
 Validation: One-page threat model and protocol sheet exist before any code.
 
 ## Phase 1: Environment and project foundation
-- [ ] Step 3. Verify Python, Node.js, npm and Git installations.
-- [ ] Step 4. Create the project root with frontend, backend, blockchain, storage, tests, docs and experiments folders.
-- [ ] Step 5. Create a Python virtual environment and install FastAPI, Uvicorn, pandas, NumPy, scikit-learn, Web3.py, pytest.
-- [ ] Step 6. Initialize the React frontend with Vite and install routing, HTTP client and charting libraries.
-- [ ] Step 7. Initialize the Solidity project with Hardhat.
-- [ ] Step 8. Start the local blockchain and verify Python can connect.
-- [ ] Step 9. Create environment config files; exclude secrets, uploaded datasets and generated artifacts from Git.
+- [x] Step 3. Verify Python, Node.js, npm and Git installations.
+- [x] Step 4. Create the project root with frontend, backend, blockchain, storage, tests, docs and experiments folders.
+- [x] Step 5. Create a Python virtual environment and install FastAPI, Uvicorn, pandas, NumPy, scikit-learn, Web3.py, pytest.
+- [x] Step 6. Initialize the React frontend with Vite and install routing, HTTP client and charting libraries.
+- [x] Step 7. Initialize the Solidity project with Hardhat.
+- [x] Step 8. Start the local blockchain and verify Python can connect.
+- [x] Step 9. Create environment config files; exclude secrets, uploaded datasets and generated artifacts from Git.
 Validation: Frontend runs, backend health check responds, Python connects to the local chain.
 
 ## Phase 2: Dataset ingestion and fingerprinting

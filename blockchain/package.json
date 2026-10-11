@@ -1,0 +1,14 @@
+{
+  "name": "ml-provenance-blockchain",
+  "version": "1.0.0",
+  "description": "Smart contracts for ML dataset and pipeline provenance",
+  "scripts": {
+    "node": "hardhat node",
+    "test": "hardhat test",
+    "compile": "hardhat compile"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.19"
+  }
+}
