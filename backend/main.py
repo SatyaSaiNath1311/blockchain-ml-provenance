@@ -28,6 +28,7 @@ from backend.fingerprint import (
     compute_canonical_metadata_digest,
     split_csv_into_chunks,
 )
+from backend.verify import verify_version
 
 load_dotenv()
 
@@ -188,7 +189,7 @@ def health_check() -> dict[str, Any]:
     return {
         "status": "ok",
         "service": "ml-provenance-backend",
-        "phase": 4,
+        "phase": 5,
         "timestamp": time.time(),
     }
 
@@ -713,6 +714,106 @@ def get_version_lineage(version_id: str) -> list[dict[str, Any]]:
         ) from exc
 
 
+@app.get("/versions/{version_id}/verify")
+def verify_version_endpoint_get(version_id: str) -> dict[str, Any]:
+    """Verify cryptographic integrity and lineage of a stored version."""
+    try:
+        uuid.UUID(version_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Malformed version ID: {version_id}",
+        )
+
+    try:
+        if not default_chain_client.version_exists(version_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Version {version_id} not registered on blockchain",
+            )
+    except (ChainUnavailable, StaleDeployment) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    storage_root = get_storage_dir()
+    return verify_version(
+        version_id=version_id,
+        file_path=None,
+        storage_dir=storage_root,
+        chain_client=default_chain_client,
+    )
+
+
+@app.post("/versions/{version_id}/verify")
+async def verify_version_endpoint_post(
+    version_id: str,
+    file: UploadFile | None = File(None),
+) -> dict[str, Any]:
+    """Verify an uploaded file against the registered on-chain version."""
+    try:
+        uuid.UUID(version_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Malformed version ID: {version_id}",
+        )
+
+    try:
+        if not default_chain_client.version_exists(version_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Version {version_id} not registered on blockchain",
+            )
+    except (ChainUnavailable, StaleDeployment) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    storage_root = get_storage_dir()
+    max_size = get_max_upload_size()
+
+    temp_path: Path | None = None
+    if file is not None and file.filename:
+        sanitized = sanitize_filename(file.filename)
+        temp_dir = storage_root / "temp"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_path = temp_dir / f"verify_{uuid.uuid4()}_{sanitized}"
+
+        try:
+            total_bytes = 0
+            with open(temp_path, "wb") as f_out:
+                while chunk := await file.read(64 * 1024):
+                    total_bytes += len(chunk)
+                    if total_bytes > max_size:
+                        raise HTTPException(
+                            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            detail=f"File exceeds maximum upload size limit ({max_size} bytes)",
+                        )
+                    f_out.write(chunk)
+
+            return verify_version(
+                version_id=version_id,
+                file_path=temp_path,
+                storage_dir=storage_root,
+                chain_client=default_chain_client,
+            )
+        finally:
+            if temp_path and temp_path.exists():
+                temp_path.unlink(missing_ok=True)
+    else:
+        # If no file uploaded, verify stored version
+        return verify_version(
+            version_id=version_id,
+            file_path=None,
+            storage_dir=storage_root,
+            chain_client=default_chain_client,
+        )
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.main:app", host="127.0.0.1", port=8000, reload=False)
+

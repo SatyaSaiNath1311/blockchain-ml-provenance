@@ -40,6 +40,8 @@ def main():
     else:
         print(f"[2/5] Using existing synthetic CSV: {csv_path} ({csv_path.stat().st_size} bytes)")
 
+    receipts_by_version = {}
+
     # 3. Upload v1 (Root)
     print("\n--- Step 1: Upload Root Version (v1: ingest) ---")
     with open(csv_path, "rb") as f:
@@ -57,6 +59,7 @@ def main():
     v1_id = v1_meta["version_id"]
     code_hash = v1_meta["provenance"]["code_commit_hash"]
     code_dirty = v1_meta["provenance"]["code_dirty"]
+    receipts_by_version[v1_id] = v1_receipt
 
     print(f" Dataset ID       : {dataset_id}")
     print(f" Root Version ID  : {v1_id}")
@@ -66,15 +69,19 @@ def main():
     print(f" Merkle Root      : {v1_meta['merkle_root']}")
     print(f" Num Chunks       : {v1_meta['num_chunks']}")
     print(f" Tx Hash          : {v1_receipt['tx_hash']}")
+    print(f" Block Number     : {v1_receipt['block_number']}")
     print(f" Gas Used         : {v1_receipt['gas_used']}")
 
     # 4. Create v2 (Deduplicate / Filter)
     print("\n--- Step 2: Create Version 2 (v2: deduplicate) ---")
     df = pd.read_csv(csv_path)
     initial_rows = len(df)
-    # Deduplicate based on demographic subsets to create a derived version
-    df_v2 = df.drop_duplicates(subset=["education", "employment", "home_ownership", "approved"], keep="first")
+    # Deduplicate across ALL columns
+    df_v2 = df.drop_duplicates(keep="first")
     v2_rows = len(df_v2)
+
+    print(f" Rows before dedup: {initial_rows}")
+    print(f" Rows after dedup : {v2_rows} (dropped {initial_rows - v2_rows}, retained {v2_rows / initial_rows * 100:.1f}%)")
 
     v2_buffer = io.BytesIO()
     df_v2.to_csv(v2_buffer, index=False)
@@ -95,6 +102,7 @@ def main():
     v2_meta = v2_json["metadata"]
     v2_receipt = v2_json["receipt"]
     v2_id = v2_meta["version_id"]
+    receipts_by_version[v2_id] = v2_receipt
 
     print(f" Version 2 ID     : {v2_id}")
     print(f" Parent Version ID: {v2_meta['parent_version_id']}")
@@ -102,6 +110,8 @@ def main():
     print(f" Operation Params : {v2_meta['provenance']['operation_params']}")
     print(f" Rows Transformed : {initial_rows} -> {v2_rows}")
     print(f" Merkle Root      : {v2_meta['merkle_root']}")
+    print(f" Tx Hash          : {v2_receipt['tx_hash']}")
+    print(f" Block Number     : {v2_receipt['block_number']}")
     print(f" Gas Used         : {v2_receipt['gas_used']}")
 
     # 5. Create v3 (Min-Max Scaling)
@@ -130,12 +140,15 @@ def main():
     v3_meta = v3_json["metadata"]
     v3_receipt = v3_json["receipt"]
     v3_id = v3_meta["version_id"]
+    receipts_by_version[v3_id] = v3_receipt
 
     print(f" Version 3 ID     : {v3_id}")
     print(f" Parent Version ID: {v3_meta['parent_version_id']}")
     print(f" Operation Type   : {v3_meta['provenance']['operation_type']}")
     print(f" Scaled Columns   : {numeric_cols}")
     print(f" Merkle Root      : {v3_meta['merkle_root']}")
+    print(f" Tx Hash          : {v3_receipt['tx_hash']}")
+    print(f" Block Number     : {v3_receipt['block_number']}")
     print(f" Gas Used         : {v3_receipt['gas_used']}")
 
     # 6. Retrieve On-Chain Lineage
@@ -147,11 +160,13 @@ def main():
     print(f"Ancestors retrieved from blockchain: {len(lineage)} version(s)\n")
     for idx, node in enumerate(lineage):
         parent_display = node["parent_version_id"] if node["parent_version_id"] else "None (Root)"
+        v_receipt = receipts_by_version.get(node["version_id"], {})
+        block_num = v_receipt.get("block_number", node.get("block_number", "N/A"))
         print(f" [{idx + 1}] Version: {node['version_id']}")
         print(f"     Parent       : {parent_display}")
         print(f"     Merkle Root  : {node['merkle_root']}")
         print(f"     Num Chunks   : {node['num_chunks']}")
-        print(f"     Block Number : {node.get('block_number', 'N/A')}")
+        print(f"     Block Number : {block_num}")
         print(f"     Timestamp    : {node['timestamp']}")
 
     total_gas = int(v1_receipt["gas_used"]) + int(v2_receipt["gas_used"]) + int(v3_receipt["gas_used"])
@@ -159,9 +174,9 @@ def main():
     print("\n==================== PIPELINE SUMMARY ====================")
     print(f" Dataset UUID    : {dataset_id}")
     print(f" Git Revision    : {code_hash} (dirty={code_dirty})")
-    print(f" v1 (Root) Gas   : {v1_receipt['gas_used']}")
-    print(f" v2 (Child) Gas  : {v2_receipt['gas_used']}")
-    print(f" v3 (Child) Gas  : {v3_receipt['gas_used']}")
+    print(f" v1 (Root) Gas   : {v1_receipt['gas_used']} (block {v1_receipt['block_number']})")
+    print(f" v2 (Child) Gas  : {v2_receipt['gas_used']} (block {v2_receipt['block_number']})")
+    print(f" v3 (Child) Gas  : {v3_receipt['gas_used']} (block {v3_receipt['block_number']})")
     print(f" Total Gas Used  : {total_gas}")
     print("=========================================================\n")
 

@@ -49,14 +49,14 @@ Validation: Valid fingerprints and runs are recorded; invalid operations are rej
 Validation: The full version history and the origin of any version can be reconstructed.
 
 ## Phase 5: Integrity verification and tampering
-- [ ] Step 34. Retrieve the expected fingerprint (file hash and Merkle root) from the blockchain.
-- [ ] Step 35. Recompute the file hash and Merkle root of the selected dataset.
-- [ ] Step 36. Compare actual and registered values; return VERIFIED or TAMPERING DETECTED.
-- [ ] Step 37. On mismatch, walk the Merkle tree and report which chunks changed.
-- [ ] Step 38. Check lineage consistency: parent chain intact, timestamps monotonic, rollback to an older version detected.
-- [ ] Step 39. Run controlled tampering tests: modify a cell, delete a row, insert a row, flip a label, swap a column, replace the file, roll back a version, modify preprocessing output, forge off-chain metadata.
-- [ ] Step 40. Preserve the original record and create a new version when a legitimate change is intended.
-- [ ] Step 41. Add tests for missing files, invalid dataset IDs, and unregistered versions.
+- [x] Step 34. Retrieve the expected fingerprint (file hash and Merkle root) from the blockchain.
+- [x] Step 35. Recompute the file hash and Merkle root of the selected dataset.
+- [x] Step 36. Compare actual and registered values; return VERIFIED or TAMPERING DETECTED.
+- [x] Step 37. On mismatch, walk the Merkle tree and report which chunks changed.
+- [x] Step 38. Check lineage consistency: parent chain intact, timestamps monotonic, rollback to an older version detected.
+- [x] Step 39. Run controlled tampering tests: modify a cell, delete a row, insert a row, flip a label, swap a column, replace the file, roll back a version, modify preprocessing output, forge off-chain metadata.
+- [x] Step 40. Preserve the original record and create a new version when a legitimate change is intended.
+- [x] Step 41. Add tests for missing files, invalid dataset IDs, and unregistered versions.
 Validation: Unmodified data passes, every modification fails, and results rely on the on-chain record, not an editable local hash file.
 
 ## Phase 6: ML pipeline integration
