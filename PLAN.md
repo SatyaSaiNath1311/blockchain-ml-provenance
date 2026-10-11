@@ -16,14 +16,14 @@ Validation: One-page threat model and protocol sheet exist before any code.
 Validation: Frontend runs, backend health check responds, Python connects to the local chain.
 
 ## Phase 2: Dataset ingestion and fingerprinting
-- [ ] Step 10. Create a small synthetic CSV dataset for initial testing.
-- [ ] Step 11. Implement dataset upload and file validation.
-- [ ] Step 12. Save the dataset off-chain with a unique dataset ID.
-- [ ] Step 13. Generate a SHA-256 hash of the exact file bytes.
-- [ ] Step 14. Split the file into fixed-size chunks, hash each chunk, build a Merkle tree, and store the full tree off-chain. Only the root is anchored on-chain.
-- [ ] Step 15. Capture metadata: filename, size, type, dataset ID, chunk size, creation time, file hash, Merkle root.
-- [ ] Step 16. Store metadata in the off-chain metadata store.
-- [ ] Step 17. Test fingerprinting on unchanged and modified files, including that a one-byte change flips the file hash and the Merkle root, and points to the right chunk.
+- [x] Step 10. Create a small synthetic CSV dataset for initial testing.
+- [x] Step 11. Implement dataset upload and file validation.
+- [x] Step 12. Save the dataset off-chain with a unique dataset ID.
+- [x] Step 13. Generate a SHA-256 hash of the exact file bytes.
+- [x] Step 14. Split the file into fixed-size chunks, hash each chunk, build a Merkle tree, and store the full tree off-chain. Only the root is anchored on-chain.
+- [x] Step 15. Capture metadata: filename, size, type, dataset ID, chunk size, creation time, file hash, Merkle root.
+- [x] Step 16. Store metadata in the off-chain metadata store.
+- [x] Step 17. Test fingerprinting on unchanged and modified files, including that a one-byte change flips the file hash and the Merkle root, and points to the right chunk.
 Validation: Identical bytes give identical hashes; a changed byte gives a different hash and identifies the affected chunk.
 
 ## Phase 3: Smart contract

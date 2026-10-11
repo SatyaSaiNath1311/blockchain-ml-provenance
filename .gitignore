@@ -33,6 +33,7 @@ storage/**
 !storage/**/.gitkeep
 
 # Generated experiment artifacts & logs
+experiments/data/
 experiments/outputs/
 experiments/runs/
 *.log
