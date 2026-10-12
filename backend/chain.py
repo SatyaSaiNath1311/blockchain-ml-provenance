@@ -144,6 +144,10 @@ class ChainClient:
             self._w3 = Web3(Web3.HTTPProvider(self.rpc_url, request_kwargs={"timeout": 5}))
         return self._w3
 
+    @property
+    def contract_address(self) -> str:
+        return self._resolve_contract_address()
+
     def _load_abi(self) -> list[dict[str, Any]]:
         if not self.abi_path.exists():
             raise StaleDeployment(f"Contract ABI file missing: {self.abi_path}")

@@ -64,7 +64,8 @@ def get_code_revision() -> tuple[str, bool]:
         status_out = subprocess.check_output(
             ["git", "status", "--porcelain"], stderr=subprocess.DEVNULL
         ).decode("utf-8").strip()
-        is_dirty = len(status_out) > 0
+        lines = [line for line in status_out.splitlines() if line.strip() and "experiments/results" not in line]
+        is_dirty = len(lines) > 0
         return commit, is_dirty
     except Exception:
         return "unknown", False

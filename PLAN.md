@@ -73,15 +73,15 @@ Validation: Unmodified data passes, every modification fails, and results rely o
 Validation: Every experiment identifies the exact dataset version and configuration, and tampered data cannot reach training.
 
 ## Phase 7: Conventional versus blockchain evaluation
-- [ ] Step 52. Implement baseline A: files with editable metadata and checksums.
-- [ ] Step 53. Implement baseline B: Git/DVC-style versioning.
-- [ ] Step 54. Run identical registration, verification and tampering experiments on all three approaches.
-- [ ] Step 55. Measure hashing and verification time separately from blockchain transaction latency.
-- [ ] Step 56. Measure off-chain metadata storage, on-chain storage, and gas per transaction.
-- [ ] Step 57. Test multiple dataset sizes and the 0.1%, 1%, 10% modification intensities; compute detection rate, false-positive rate, and localization accuracy per attack type.
-- [ ] Step 58. Evaluate lineage reconstruction and reproducibility.
-- [ ] Step 59. Run 30 trials per condition; report mean ± std.
-- [ ] Step 60. Generate comparison charts and summary tables.
+- [x] Step 52. Implement baseline A: files with editable metadata and checksums.
+- [x] Step 53. Implement baseline B: Git/DVC-style versioning.
+- [ ] Step 54. Run identical registration, verification and tampering experiments on all three approaches. (code ready, full run pending)
+- [ ] Step 55. Measure hashing and verification time separately from blockchain transaction latency. (code ready, full run pending)
+- [ ] Step 56. Measure off-chain metadata storage, on-chain storage, and gas per transaction. (code ready, full run pending)
+- [ ] Step 57. Test multiple dataset sizes and the 0.1%, 1%, 10% modification intensities; compute detection rate, false-positive rate, and localization accuracy per attack type. (code ready, full run pending)
+- [ ] Step 58. Evaluate lineage reconstruction and reproducibility. (code ready, full run pending)
+- [ ] Step 59. Run 30 trials per condition; report mean ± std. (code ready, full run pending)
+- [ ] Step 60. Generate comparison charts and summary tables. (code ready, full run pending)
 Validation: Results tables cover all three approaches, with variability reported.
 
 ## Phase 8: React UI

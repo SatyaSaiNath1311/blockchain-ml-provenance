@@ -35,16 +35,19 @@ def modify_cells(
     selected_indices = rng.choice(n, size=min(k, n), replace=False)
 
     numeric_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and c != "id"]
-    target_col = numeric_cols[0] if numeric_cols else df.columns[-1]
+    candidate_cols = numeric_cols if numeric_cols else [c for c in df.columns if c != "id"]
 
     for idx in selected_indices:
+        target_col = rng.choice(candidate_cols)
         current_val = df.at[idx, target_col]
         if isinstance(current_val, (int, np.integer)):
-            df.at[idx, target_col] = int(current_val + 77)
+            offset = int(rng.integers(10, 100))
+            df.at[idx, target_col] = int(current_val + offset)
         elif isinstance(current_val, (float, np.floating)):
-            df.at[idx, target_col] = round(float(current_val + 555.55), 2)
+            offset = round(float(rng.uniform(10.0, 500.0)), 2)
+            df.at[idx, target_col] = round(float(current_val + offset), 2)
         else:
-            df.at[idx, target_col] = f"{current_val}_TAMPERED"
+            df.at[idx, target_col] = f"{current_val}_TAMPERED_{seed}"
 
     df.to_csv(p, index=False)
     assert p.read_bytes() != orig_bytes, "Output bytes must differ from input bytes"
@@ -52,7 +55,7 @@ def modify_cells(
         "attack": "modify_cells",
         "fraction": fraction,
         "rows_modified": [int(x) for x in selected_indices],
-        "target_column": target_col,
+        "seed": seed,
     }
 
 
@@ -81,6 +84,7 @@ def delete_rows(
         "fraction": fraction,
         "rows_deleted": [int(x) for x in delete_indices],
         "remaining_rows": len(df),
+        "seed": seed,
     }
 
 
@@ -89,7 +93,7 @@ def insert_rows(
     fraction: float = 0.01,
     seed: int = 42,
 ) -> dict[str, Any]:
-    """Insert duplicate/synthetic rows in the middle. Guarantees output bytes differ from input."""
+    """Insert duplicate/synthetic rows at a randomized position. Guarantees output bytes differ from input."""
     p = Path(file_path).resolve()
     orig_bytes = p.read_bytes()
     df = pd.read_csv(p)
@@ -101,9 +105,10 @@ def insert_rows(
     sample_indices = rng.choice(n, size=k, replace=True)
     insert_chunk = df.iloc[sample_indices].copy()
     if "id" in insert_chunk.columns:
-        insert_chunk["id"] = np.arange(900000, 900000 + k)
+        insert_chunk["id"] = np.arange(900000 + seed, 900000 + seed + k)
 
-    split_pt = n // 2
+    # Randomized insertion position based on seed
+    split_pt = int(rng.integers(1, max(2, n))) if n > 1 else 1
     top = df.iloc[:split_pt]
     bottom = df.iloc[split_pt:]
     combined = pd.concat([top, insert_chunk, bottom], ignore_index=True)
@@ -115,6 +120,7 @@ def insert_rows(
         "rows_inserted": k,
         "insert_position": split_pt,
         "new_total_rows": len(combined),
+        "seed": seed,
     }
 
 
@@ -141,7 +147,7 @@ def flip_labels(
         elif isinstance(val, (float, np.floating)) and val in (0.0, 1.0):
             df.at[idx, label_col] = 1.0 - val
         else:
-            df.at[idx, label_col] = f"FLIPPED_{val}"
+            df.at[idx, label_col] = f"FLIPPED_{val}_{seed}"
 
     df.to_csv(p, index=False)
     assert p.read_bytes() != orig_bytes, "Output bytes must differ from input bytes"
@@ -150,6 +156,7 @@ def flip_labels(
         "fraction": fraction,
         "label_column": label_col,
         "flipped_rows": [int(x) for x in flip_indices],
+        "seed": seed,
     }
 
 
@@ -161,25 +168,26 @@ def swap_columns(
     p = Path(file_path).resolve()
     orig_bytes = p.read_bytes()
     df = pd.read_csv(p)
+    rng = np.random.default_rng(seed)
 
     cols = list(df.columns)
     if len(cols) < 2:
         raise ValueError("Cannot swap columns in single-column dataset")
 
-    # Pick two columns with non-identical values
-    col1, col2 = None, None
+    # Pick pairs of non-identical columns
+    pairs = []
     for i in range(len(cols)):
         for j in range(i + 1, len(cols)):
             if not df[cols[i]].equals(df[cols[j]]):
-                col1, col2 = cols[i], cols[j]
-                i_idx, j_idx = i, j
-                break
-        if col1:
-            break
+                pairs.append((i, j))
 
-    if not col1:
-        col1, col2 = cols[0], cols[1]
-        i_idx, j_idx = 0, 1
+    if not pairs:
+        pairs = [(0, 1)]
+
+    # Randomly select a pair using the seed
+    pair_idx = int(rng.integers(0, len(pairs)))
+    i_idx, j_idx = pairs[pair_idx]
+    col1, col2 = cols[i_idx], cols[j_idx]
 
     cols[i_idx], cols[j_idx] = cols[j_idx], cols[i_idx]
     df = df[cols]
@@ -188,6 +196,7 @@ def swap_columns(
     return {
         "attack": "swap_columns",
         "swapped": [col1, col2],
+        "seed": seed,
     }
 
 
@@ -204,11 +213,12 @@ def replace_file(
         src = Path(replacement_source_path).resolve()
         shutil.copy2(src, p)
     else:
-        # Generate completely different CSV
+        # Generate completely different CSV with seed variance
+        rng = np.random.default_rng(seed)
         dummy_df = pd.DataFrame({
-            "col_a": [100, 200, 300, 400],
-            "col_b": ["x", "y", "z", "w"],
-            "col_c": [9.9, 8.8, 7.7, 6.6],
+            "col_a": [int(rng.integers(100, 999)) for _ in range(4)],
+            "col_b": [f"val_{seed}_{i}" for i in range(4)],
+            "col_c": [round(float(rng.uniform(1.0, 99.0)), 2) for _ in range(4)],
         })
         dummy_df.to_csv(p, index=False)
 
@@ -216,6 +226,7 @@ def replace_file(
     return {
         "attack": "replace_file",
         "target": str(p),
+        "seed": seed,
     }
 
 
@@ -252,13 +263,13 @@ def modify_preprocessing_output(
     if not numeric_cols:
         numeric_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and c != "id"]
 
-    col = numeric_cols[0]
+    col = rng.choice(numeric_cols) if numeric_cols else df.columns[-1]
     n = len(df)
     k = max(1, int(round(fraction * n)))
     selected = rng.choice(n, size=min(k, n), replace=False)
 
     for idx in selected:
-        df.at[idx, col] = 999.99  # Corrupt normal [0, 1] range
+        df.at[idx, col] = round(float(rng.uniform(800.0, 1200.0)), 2)  # Corrupt normal [0, 1] range
 
     df.to_csv(p, index=False)
     assert p.read_bytes() != orig_bytes, "Output bytes must differ from input bytes"
@@ -267,6 +278,7 @@ def modify_preprocessing_output(
         "fraction": fraction,
         "tampered_column": col,
         "rows_tampered": [int(x) for x in selected],
+        "seed": seed,
     }
 
 

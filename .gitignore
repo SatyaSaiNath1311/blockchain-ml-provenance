@@ -37,6 +37,7 @@ storage/**
 experiments/data/
 experiments/outputs/
 experiments/runs/
+experiments/results/
 *.log
 
 # Operating System & IDE

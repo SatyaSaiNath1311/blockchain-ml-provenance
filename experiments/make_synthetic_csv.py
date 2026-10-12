@@ -4,15 +4,14 @@ import numpy as np
 import pandas as pd
 
 
-def generate_synthetic_csv(
-    output_path: Path,
+def generate_synthetic_dataset(
     num_rows: int = 5000,
-    seed: int = 42,
+    random_state: int = 42,
     duplicate_fraction: float = 0.03,
     missing_rate: float = 0.0,
-) -> Path:
-    """Generate a reproducible synthetic ML classification dataset with exact duplicate rows."""
-    rng = np.random.default_rng(seed)
+) -> pd.DataFrame:
+    """Generate a reproducible synthetic ML classification DataFrame with exact duplicate rows."""
+    rng = np.random.default_rng(random_state)
 
     num_duplicates = int(round(num_rows * duplicate_fraction))
     num_unique = num_rows - num_duplicates
@@ -56,30 +55,43 @@ def generate_synthetic_csv(
     })
 
     if num_duplicates > 0:
-        # Sample exact copies of existing rows (including identical 'id')
         dup_indices = rng.choice(len(base_df), size=num_duplicates, replace=True)
         dup_df = base_df.iloc[dup_indices].copy()
-
-        # Combine and randomly permute positions
         combined_df = pd.concat([base_df, dup_df], ignore_index=True)
         perm = rng.permutation(len(combined_df))
         df = combined_df.iloc[perm].reset_index(drop=True)
     else:
         df = base_df
 
-    # Inject missing values (NaN) into feature cells if requested
     if missing_rate > 0.0:
         feature_cols = ["age", "income", "credit_score", "education", "employment", "home_ownership", "loan_amount"]
-        # Convert integer columns to float or object so NaN can be stored
         df["age"] = df["age"].astype(float)
         df["credit_score"] = df["credit_score"].astype(float)
         for col in feature_cols:
             mask = rng.random(size=len(df)) < missing_rate
             df.loc[mask, col] = np.nan
 
+    return df
+
+
+def generate_synthetic_csv(
+    output_path: Path,
+    num_rows: int = 5000,
+    seed: int = 42,
+    duplicate_fraction: float = 0.03,
+    missing_rate: float = 0.0,
+) -> Path:
+    """Generate a reproducible synthetic ML classification dataset with exact duplicate rows."""
+    df = generate_synthetic_dataset(
+        num_rows=num_rows,
+        random_state=seed,
+        duplicate_fraction=duplicate_fraction,
+        missing_rate=missing_rate,
+    )
     output_path = Path(output_path).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(output_path, index=False)
+    num_duplicates = int(round(num_rows * duplicate_fraction))
     print(
         f"[Dataset Generator] Created {len(df)} rows ({num_duplicates} exact duplicates, "
         f"~{100 - duplicate_fraction * 100:.1f}% unique, missing_rate={missing_rate:.2f}) at: {output_path} "
