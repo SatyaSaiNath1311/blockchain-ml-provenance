@@ -1,14 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Database, GitBranch, ChevronRight, Layers } from 'lucide-react';
 import { listDatasets, getDatasetVersions, getLineage } from '../api/client';
 import { SkeletonCard, SkeletonRows } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
+import ShortId from '../components/ShortId';
+
+function getOperationLabel(item) {
+  if (
+    item?.operation_type === 'preprocess' ||
+    item?.operation_type === 'preprocess_clean' ||
+    (item?.parent_version_id && item?.parent_version_id !== '00000000-0000-0000-0000-000000000000')
+  ) {
+    return 'Cleaned version';
+  }
+  return 'Original upload';
+}
 
 /* ── Lineage SVG ──────────────────────────────────────────── */
 function LineageSVG({ nodes }) {
   if (!nodes || nodes.length === 0) return null;
-  const BOX_W = 220, BOX_H = 52, GAP_X = 60, PAD = 20;
+  const BOX_W = 220, BOX_H = 56, GAP_X = 60, PAD = 20;
   const n = nodes.length;
   const svgW = n * BOX_W + (n - 1) * GAP_X + PAD * 2;
   const svgH = BOX_H + PAD * 2;
@@ -26,6 +38,7 @@ function LineageSVG({ nodes }) {
           const x = PAD + i * (BOX_W + GAP_X);
           const y = PAD;
           const isLast = i === n - 1;
+          const label = getOperationLabel(node);
           return (
             <g key={node.version_id ?? i}>
               {/* Arrow from previous box */}
@@ -51,22 +64,22 @@ function LineageSVG({ nodes }) {
               />
               {/* Op type label */}
               <text
-                x={x + BOX_W / 2} y={y + 20}
+                x={x + BOX_W / 2} y={y + 22}
                 textAnchor="middle"
                 fill="var(--clr-text)"
-                fontSize="11"
+                fontSize="14"
                 fontWeight="600"
-                fontFamily="Inter,sans-serif"
+                fontFamily="var(--font-sans)"
               >
-                {node.operation_type ?? 'ingest'}
+                {label}
               </text>
               {/* Short version ID */}
               <text
-                x={x + BOX_W / 2} y={y + 36}
+                x={x + BOX_W / 2} y={y + 42}
                 textAnchor="middle"
                 fill="var(--clr-text-3)"
-                fontSize="9"
-                fontFamily="JetBrains Mono,monospace"
+                fontSize="13"
+                fontFamily="var(--font-mono)"
               >
                 {String(node.version_id ?? '').slice(0, 8)}…
               </text>
@@ -86,17 +99,7 @@ function VersionList({ datasetId, onSelectVersion }) {
   const [error, setError] = useState('');
   const [lineageError, setLineageError] = useState('');
 
-  useEffect(() => {
-    setVersions(null);
-    setLineage(null);
-    setSelected(null);
-    setError('');
-    getDatasetVersions(datasetId)
-      .then(setVersions)
-      .catch((e) => setError(e.message));
-  }, [datasetId]);
-
-  const loadLineage = (vId) => {
+  const loadLineage = useCallback((vId) => {
     setSelected(vId);
     setLineage(null);
     setLineageError('');
@@ -104,11 +107,39 @@ function VersionList({ datasetId, onSelectVersion }) {
     getLineage(vId)
       .then(setLineage)
       .catch((e) => setLineageError(e.message));
-  };
+  }, [onSelectVersion]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDatasetVersions(datasetId)
+      .then((verList) => {
+        if (!cancelled) {
+          setVersions(verList);
+          if (verList && verList.length === 1) {
+            loadLineage(verList[0].version_id);
+          }
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasetId, loadLineage]);
 
   if (error) return <ErrorAlert message={error} />;
   if (!versions) return <SkeletonRows n={3} />;
-  if (versions.length === 0) return <EmptyState title="No versions" />;
+  if (versions.length === 0) {
+    return (
+      <EmptyState
+        title="No versions recorded"
+        desc="This dataset currently has no recorded versions on-chain."
+        actionLabel="Upload new version"
+        actionHref="/"
+      />
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
@@ -124,31 +155,44 @@ function VersionList({ datasetId, onSelectVersion }) {
             </tr>
           </thead>
           <tbody>
-            {versions.map((v) => (
-              <tr key={v.version_id} style={{ cursor: 'pointer' }} onClick={() => loadLineage(v.version_id)}>
-                <td className="mono" style={{ fontSize: '.72rem' }}>{v.version_id?.slice(0, 12)}…</td>
-                <td>
-                  <span className="badge badge-neutral">{v.operation_type ?? '—'}</span>
-                </td>
-                <td>{v.num_chunks ?? '—'}</td>
-                <td className="text-xs text-faint">
-                  {v.timestamp ? new Date(Number(v.timestamp) * 1000).toLocaleString() : '—'}
-                </td>
-                <td>
-                  <ChevronRight size={14} style={{ color: 'var(--clr-text-3)' }} />
-                </td>
-              </tr>
-            ))}
+            {versions.map((v) => {
+              const opLabel = getOperationLabel(v);
+              const isSelected = selected === v.version_id;
+              return (
+                <tr
+                  key={v.version_id}
+                  style={{
+                    cursor: 'pointer',
+                    background: isSelected ? 'var(--clr-accent-dim)' : undefined,
+                  }}
+                  onClick={() => loadLineage(v.version_id)}
+                >
+                  <td>
+                    <ShortId id={v.version_id} length={8} />
+                  </td>
+                  <td>
+                    <span className="badge badge-neutral">{opLabel}</span>
+                  </td>
+                  <td>{v.num_chunks ?? '—'}</td>
+                  <td className="text-xs text-faint">
+                    {v.timestamp ? new Date(Number(v.timestamp) * 1000).toLocaleString() : '—'}
+                  </td>
+                  <td>
+                    <ChevronRight size={14} style={{ color: isSelected ? 'var(--clr-accent)' : 'var(--clr-text-3)' }} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {selected && (
-        <div className="card" style={{ padding: 'var(--sp-4)' }}>
+        <div className="card" style={{ padding: 'var(--sp-4)', marginTop: 'var(--sp-2)' }}>
           <div className="flex items-center gap-2 mb-4">
             <GitBranch size={15} style={{ color: 'var(--clr-accent)' }} />
-            <span className="text-sm" style={{ fontWeight: 600 }}>Lineage</span>
-            <span className="hash" style={{ fontSize: '.65rem' }}>{selected}</span>
+            <span className="text-sm" style={{ fontWeight: 600 }}>Provenance lineage</span>
+            <ShortId id={selected} length={12} />
           </div>
           {lineageError && <ErrorAlert message={lineageError} />}
           {!lineage && !lineageError && <SkeletonRows n={1} />}
@@ -171,11 +215,18 @@ export default function ExplorerPage() {
       .catch((e) => setError(e.message));
   }, []);
 
+  // Sort datasets newest first
+  const sortedDatasets = [...(datasets || [])].sort((a, b) => {
+    const tA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const tB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return tB - tA;
+  });
+
   return (
-    <div>
+    <div className="page-container">
       <div className="page-header">
-        <h1 className="page-title">Dataset Explorer</h1>
-        <p className="page-desc">Browse datasets, version history, and lineage graphs.</p>
+        <h1 className="page-title">Dataset explorer</h1>
+        <p className="page-desc">Browse registered datasets, version history, and on-chain lineage graphs.</p>
       </div>
 
       <div style={{ display: 'flex', gap: 'var(--sp-4)', flexDirection: 'column' }}>
@@ -195,10 +246,12 @@ export default function ExplorerPage() {
             <EmptyState
               icon={Database}
               title="No datasets yet"
-              desc="Upload a CSV to get started."
+              desc="Upload and anchor your first CSV dataset to start tracking provenance."
+              actionLabel="Upload and anchor dataset"
+              actionHref="/"
             />
           )}
-          {datasets && datasets.length > 0 && (
+          {sortedDatasets.length > 0 && (
             <div className="table-wrap">
               <table>
                 <thead>
@@ -206,34 +259,46 @@ export default function ExplorerPage() {
                     <th>Dataset ID</th>
                     <th>Filename</th>
                     <th>Size</th>
-                    <th>Created</th>
-                    <th>Versions</th>
+                    <th>Created date</th>
+                    <th>Version count</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {datasets.map((ds) => (
-                    <tr
-                      key={ds.dataset_id}
-                      style={{ cursor: 'pointer', background: selected === ds.dataset_id ? 'var(--clr-accent-dim)' : '' }}
-                      onClick={() => setSelected(ds.dataset_id === selected ? null : ds.dataset_id)}
-                    >
-                      <td className="mono" style={{ fontSize: '.72rem' }}>{ds.dataset_id?.slice(0, 12)}…</td>
-                      <td>{ds.filename}</td>
-                      <td className="text-xs">{ds.size_bytes ? `${(ds.size_bytes / 1024).toFixed(1)} KB` : '—'}</td>
-                      <td className="text-xs text-faint">
-                        {ds.created_at ? new Date(ds.created_at).toLocaleDateString() : '—'}
-                      </td>
-                      <td>
-                        <span className="badge badge-neutral">
-                          <Layers size={11} /> {ds.version_count}
-                        </span>
-                      </td>
-                      <td>
-                        <ChevronRight size={14} style={{ color: 'var(--clr-text-3)' }} />
-                      </td>
-                    </tr>
-                  ))}
+                  {sortedDatasets.map((ds) => {
+                    const isSelected = selected === ds.dataset_id;
+                    const dateFormatted = ds.created_at
+                      ? new Date(ds.created_at).toLocaleDateString()
+                      : '—';
+                    return (
+                      <tr
+                        key={ds.dataset_id}
+                        style={{
+                          cursor: 'pointer',
+                          background: isSelected ? 'var(--clr-accent-dim)' : undefined,
+                        }}
+                        onClick={() => setSelected(isSelected ? null : ds.dataset_id)}
+                      >
+                        <td>
+                          <ShortId id={ds.dataset_id} length={8} />
+                        </td>
+                        <td style={{ fontWeight: 500 }}>{ds.filename || 'dataset.csv'}</td>
+                        <td className="text-xs">{ds.size_bytes ? `${(ds.size_bytes / 1024).toFixed(1)} KB` : '—'}</td>
+                        <td className="text-xs text-faint">{dateFormatted}</td>
+                        <td>
+                          <span className="badge badge-neutral">
+                            <Layers size={11} /> {ds.version_count} {ds.version_count === 1 ? 'version' : 'versions'}
+                          </span>
+                        </td>
+                        <td>
+                          <ChevronRight
+                            size={14}
+                            style={{ color: isSelected ? 'var(--clr-accent)' : 'var(--clr-text-3)' }}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -245,8 +310,10 @@ export default function ExplorerPage() {
           <div className="card">
             <div className="card-header">
               <Layers size={18} style={{ color: 'var(--clr-accent)' }} />
-              <p className="card-title">Versions</p>
-              <span className="hash" style={{ fontSize: '.65rem', marginLeft: 'auto' }}>{selected}</span>
+              <p className="card-title">Dataset versions</p>
+              <div style={{ marginLeft: 'auto' }}>
+                <ShortId id={selected} length={12} />
+              </div>
             </div>
             <VersionList datasetId={selected} />
           </div>

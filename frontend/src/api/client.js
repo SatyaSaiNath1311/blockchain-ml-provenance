@@ -100,6 +100,8 @@ export const preprocessVersion = (versionId) =>
 export const trainVersion = (versionId, config = null) =>
   api.post(`/versions/${versionId}/train`, config).then((r) => r.data);
 
+export const trainModel = trainVersion;
+
 export const reproduceExperiment = (runId) =>
   api.post(`/experiments/${runId}/reproduce`).then((r) => r.data);
 

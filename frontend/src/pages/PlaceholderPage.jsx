@@ -2,7 +2,7 @@ import { Construction } from 'lucide-react';
 
 export default function PlaceholderPage({ title = 'Coming soon', desc }) {
   return (
-    <div>
+    <div className="page-container">
       <div className="page-header">
         <h1 className="page-title">{title}</h1>
         {desc && <p className="page-desc">{desc}</p>}

@@ -32,16 +32,13 @@ export default function ChainStatus() {
       {state === 'loading' && <span className="text-faint">Connecting…</span>}
       {state === 'online' && (
         <>
-          <Activity size={13} />
+          <Activity size={14} style={{ color: 'var(--clr-pass)' }} />
           <span>Chain connected</span>
-          <span className="badge badge-info" style={{ marginLeft: 4 }}>
-            PHASE 8
-          </span>
         </>
       )}
       {state === 'offline' && (
         <>
-          <WifiOff size={13} style={{ color: 'var(--clr-fail)' }} />
+          <WifiOff size={14} style={{ color: 'var(--clr-fail)' }} />
           <span style={{ color: 'var(--clr-fail)' }}>Chain offline</span>
         </>
       )}

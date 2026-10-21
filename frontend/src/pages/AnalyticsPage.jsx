@@ -52,12 +52,12 @@ export default function AnalyticsPage() {
 
   if (loading) {
     return (
-      <div>
+      <div className="page-container">
         <div className="page-header">
-          <h1 className="page-title">Evaluation & Benchmark Analytics</h1>
+          <h1 className="page-title">Evaluation and benchmark analytics</h1>
           <p className="page-desc">Loading evaluation dataset metrics and benchmark results…</p>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', maxWidth: 1000 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
           <SkeletonCard />
           <SkeletonCard />
         </div>
@@ -67,9 +67,9 @@ export default function AnalyticsPage() {
 
   if (error || !data) {
     return (
-      <div>
+      <div className="page-container">
         <div className="page-header">
-          <h1 className="page-title">Evaluation & Benchmark Analytics</h1>
+          <h1 className="page-title">Evaluation and benchmark analytics</h1>
         </div>
         <ErrorAlert message={error || 'Failed to load analytics data'} />
       </div>
@@ -77,6 +77,12 @@ export default function AnalyticsPage() {
   }
 
   const { tables, metadata } = data;
+
+  const approachLabels = {
+    A: 'Approach A (File checksums + editable manifest)',
+    B: 'Approach B (Git/DVC-style local versioning)',
+    C: 'Approach C (Blockchain-anchored Merkle tree)',
+  };
 
   // 1. Transform Detection Rates for BarChart: group by attack type
   const detectionRateRows = tables.detection_rates || [];
@@ -86,7 +92,8 @@ export default function AnalyticsPage() {
     detectionRateRows
       .filter((r) => r.attack === attack)
       .forEach((r) => {
-        entry[`Approach ${r.approach}`] = Math.round((r.detection_rate ?? 0) * 100);
+        const key = approachLabels[r.approach] || `Approach ${r.approach}`;
+        entry[key] = Math.round((r.detection_rate ?? 0) * 100);
       });
     return entry;
   });
@@ -102,7 +109,8 @@ export default function AnalyticsPage() {
     timingRows
       .filter((r) => r.size_label === size)
       .forEach((r) => {
-        entry[`Approach ${r.approach}`] = Number((r.total_ms_mean ?? 0).toFixed(2));
+        const key = approachLabels[r.approach] || `Approach ${r.approach}`;
+        entry[key] = Number((r.total_ms_mean ?? 0).toFixed(2));
       });
     return entry;
   });
@@ -126,11 +134,12 @@ export default function AnalyticsPage() {
     }));
 
   const customTooltipStyle = {
-    backgroundColor: '#0f172a',
-    border: '1px solid #334155',
-    borderRadius: '6px',
-    color: '#f8fafc',
-    fontSize: '0.78rem',
+    backgroundColor: 'var(--clr-surface-2)',
+    border: '1px solid var(--clr-border)',
+    borderRadius: 'var(--radius)',
+    color: 'var(--clr-text)',
+    fontSize: 'var(--text-xs)',
+    boxShadow: 'none',
   };
 
   const renderZeroLabel = (props) => {
@@ -140,9 +149,9 @@ export default function AnalyticsPage() {
         <text
           x={x + width / 2}
           y={y - 4}
-          fill="#ef4444"
+          fill="var(--clr-fail)"
           textAnchor="middle"
-          fontSize={10}
+          fontSize={13}
           fontWeight={700}
         >
           0%
@@ -224,22 +233,22 @@ export default function AnalyticsPage() {
   const largestTreeSizeKb = largestChunk ? Math.round(largestChunk.tree_size_bytes / 1024) : 3;
 
   return (
-    <div data-testid="analytics-page-container">
+    <div className="page-container" data-testid="analytics-page-container">
       <div className="page-header">
-        <h1 className="page-title">Evaluation & Benchmark Analytics</h1>
+        <h1 className="page-title">Evaluation and benchmark analytics</h1>
         <p className="page-desc">
-          Empirical evaluation results across Approaches A (SHA-256), B (Merkle tree off-chain), and C (Blockchain-anchored Merkle tree).
+          Empirical evaluation results across Approach A (file checksums with an editable manifest), Approach B (Git/DVC-style local versioning), and Approach C (blockchain-anchored Merkle tree).
         </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)', maxWidth: 1040 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
         {/* Section 1: Detection Rate Bar Chart */}
         <div className="card" data-testid="chart-detection-rate">
           <div className="card-header">
             <ShieldAlert size={20} style={{ color: 'var(--clr-accent)' }} />
             <div>
-              <h2 className="card-title" style={{ fontSize: '1.05rem', margin: 0 }}>
-                Tamper Detection Rate across {attacks.length} Attack Types (%)
+              <h2 className="card-title" style={{ fontSize: 'var(--text-lg)', margin: 0 }}>
+                Tamper detection rate across {attacks.length} attack types (%)
               </h2>
             </div>
           </div>
@@ -247,14 +256,14 @@ export default function AnalyticsPage() {
           <div style={{ width: '100%', height: 320, marginTop: 'var(--sp-2)' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={detectionChartData} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                <XAxis dataKey="attack" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#94a3b8" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="2 2" stroke="var(--clr-border)" strokeOpacity={0.4} vertical={false} />
+                <XAxis dataKey="attack" stroke="var(--clr-text-3)" tick={{ fontSize: 13, fill: 'var(--clr-text-2)' }} />
+                <YAxis stroke="var(--clr-text-3)" domain={[0, 100]} unit="%" tick={{ fontSize: 13, fill: 'var(--clr-text-2)' }} />
                 <Tooltip contentStyle={customTooltipStyle} formatter={(val) => [`${val}%`, '']} />
-                <Legend wrapperStyle={{ fontSize: '0.8rem', paddingTop: '10px' }} />
-                <Bar dataKey="Approach A" fill="#10b981" radius={[4, 4, 0, 0]} minPointSize={6} label={renderZeroLabel} />
-                <Bar dataKey="Approach B" fill="#3b82f6" radius={[4, 4, 0, 0]} minPointSize={6} label={renderZeroLabel} />
-                <Bar dataKey="Approach C" fill="#6366f1" radius={[4, 4, 0, 0]} minPointSize={6} label={renderZeroLabel} />
+                <Legend wrapperStyle={{ fontSize: 'var(--text-xs)', paddingTop: '10px' }} />
+                <Bar dataKey="Approach A (File checksums + editable manifest)" fill="var(--clr-approach-a)" radius={[3, 3, 0, 0]} minPointSize={6} label={renderZeroLabel} />
+                <Bar dataKey="Approach B (Git/DVC-style local versioning)" fill="var(--clr-approach-b)" radius={[3, 3, 0, 0]} minPointSize={6} label={renderZeroLabel} />
+                <Bar dataKey="Approach C (Blockchain-anchored Merkle tree)" fill="var(--clr-approach-c)" radius={[3, 3, 0, 0]} minPointSize={6} label={renderZeroLabel} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -269,14 +278,14 @@ export default function AnalyticsPage() {
           <div className="card-header">
             <Activity size={20} style={{ color: 'var(--clr-pass)' }} />
             <div>
-              <h2 className="card-title" style={{ fontSize: '1.05rem', margin: 0 }}>
-                False Positive Rate (FPR) Evaluation
+              <h2 className="card-title" style={{ fontSize: 'var(--text-lg)', margin: 0 }}>
+                False positive rate (FPR) evaluation
               </h2>
             </div>
           </div>
 
           <div className="table-container mt-2">
-            <table style={{ width: '100%', fontSize: '.82rem' }}>
+            <table style={{ width: '100%', fontSize: 'var(--text-sm)' }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: 'left' }}>Approach</th>
@@ -289,7 +298,7 @@ export default function AnalyticsPage() {
               <tbody>
                 {(tables.false_positive_rate || []).map((r, i) => (
                   <tr key={i}>
-                    <td><strong>Approach {r.approach}</strong></td>
+                    <td><strong>{approachLabels[r.approach] || `Approach ${r.approach}`}</strong></td>
                     <td style={{ textAlign: 'right' }}>{r.clean_trials}</td>
                     <td style={{ textAlign: 'right' }}>{r.false_positives}</td>
                     <td style={{ textAlign: 'right', color: 'var(--clr-pass)', fontWeight: 600 }}>
@@ -314,14 +323,14 @@ export default function AnalyticsPage() {
           <div className="card-header">
             <Layers size={20} style={{ color: 'var(--clr-accent)' }} />
             <div>
-              <h2 className="card-title" style={{ fontSize: '1.05rem', margin: 0 }}>
-                Tamper Localization Accuracy (Approach C)
+              <h2 className="card-title" style={{ fontSize: 'var(--text-lg)', margin: 0 }}>
+                Tamper localization accuracy (Approach C: Blockchain-anchored Merkle tree)
               </h2>
             </div>
           </div>
 
           <div className="table-container mt-2">
-            <table style={{ width: '100%', fontSize: '.82rem' }}>
+            <table style={{ width: '100%', fontSize: 'var(--text-sm)' }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: 'left' }}>Attack Scenario</th>
@@ -352,7 +361,7 @@ export default function AnalyticsPage() {
           </div>
 
           <p className="text-xs text-faint mt-3" style={{ borderTop: '1px solid var(--clr-border-faint)', paddingTop: 'var(--sp-2)' }}>
-            <strong>Caption:</strong> Chunk-level tamper localization metrics for Approach C across data-row attacks ({locAttacks.join(', ')}). Across all evaluated conditions, precision is {locPrec} and recall is {locRecall} with {locExactPct}% exact match and {locFirstMatchPct}% first-chunk match rates across {locTrials} trials per condition. For row insertions and deletions, the ground truth is defined as every chunk from the edit point onward, so those metrics reflect that definition.
+            <strong>Caption:</strong> Chunk-level tamper localization metrics for Approach C (blockchain-anchored Merkle tree) across data-row attacks ({locAttacks.join(', ')}). Across all evaluated conditions, precision is {locPrec} and recall is {locRecall} with {locExactPct}% exact match and {locFirstMatchPct}% first-chunk match rates across {locTrials} trials per condition. For row insertions and deletions, the ground truth is defined as every chunk from the edit point onward, so those metrics reflect that definition.
           </p>
         </div>
 
@@ -361,8 +370,8 @@ export default function AnalyticsPage() {
           <div className="card-header">
             <BarChart2 size={20} style={{ color: 'var(--clr-accent)' }} />
             <div>
-              <h2 className="card-title" style={{ fontSize: '1.05rem', margin: 0 }}>
-                Verification Latency vs Dataset Size (ms)
+              <h2 className="card-title" style={{ fontSize: 'var(--text-lg)', margin: 0 }}>
+                Verification latency vs dataset size (ms)
               </h2>
             </div>
           </div>
@@ -370,14 +379,14 @@ export default function AnalyticsPage() {
           <div style={{ width: '100%', height: 320, marginTop: 'var(--sp-2)' }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={timingChartData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                <XAxis dataKey="size" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                <YAxis stroke="#94a3b8" scale="log" domain={['auto', 'auto']} unit=" ms" tick={{ fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="2 2" stroke="var(--clr-border)" strokeOpacity={0.4} vertical={false} />
+                <XAxis dataKey="size" stroke="var(--clr-text-3)" tick={{ fontSize: 13, fill: 'var(--clr-text-2)' }} />
+                <YAxis stroke="var(--clr-text-3)" scale="log" domain={['auto', 'auto']} unit=" ms" tick={{ fontSize: 13, fill: 'var(--clr-text-2)' }} />
                 <Tooltip contentStyle={customTooltipStyle} formatter={(val) => [`${val} ms`, '']} />
-                <Legend wrapperStyle={{ fontSize: '0.8rem', paddingTop: '10px' }} />
-                <Line type="monotone" dataKey="Approach A" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="Approach B" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="Approach C" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} />
+                <Legend wrapperStyle={{ fontSize: 'var(--text-xs)', paddingTop: '10px' }} />
+                <Line type="monotone" dataKey="Approach A (File checksums + editable manifest)" stroke="var(--clr-approach-a)" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="Approach B (Git/DVC-style local versioning)" stroke="var(--clr-approach-b)" strokeWidth={2} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="Approach C (Blockchain-anchored Merkle tree)" stroke="var(--clr-approach-c)" strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -392,8 +401,8 @@ export default function AnalyticsPage() {
           <div className="card-header">
             <Cpu size={20} style={{ color: 'var(--clr-accent)' }} />
             <div>
-              <h2 className="card-title" style={{ fontSize: '1.05rem', margin: 0 }}>
-                Measured Ethereum Gas per On-Chain Operation
+              <h2 className="card-title" style={{ fontSize: 'var(--text-lg)', margin: 0 }}>
+                Measured Ethereum gas per on-chain operation
               </h2>
             </div>
           </div>
@@ -401,13 +410,13 @@ export default function AnalyticsPage() {
           <div style={{ width: '100%', height: 320, marginTop: 'var(--sp-2)' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={gasRows} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                <XAxis dataKey="operation" stroke="#94a3b8" tick={{ fontSize: 10 }} angle={-15} textAnchor="end" />
-                <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="2 2" stroke="var(--clr-border)" strokeOpacity={0.4} vertical={false} />
+                <XAxis dataKey="operation" stroke="var(--clr-text-3)" tick={{ fontSize: 13, fill: 'var(--clr-text-2)' }} angle={-15} textAnchor="end" />
+                <YAxis stroke="var(--clr-text-3)" tick={{ fontSize: 13, fill: 'var(--clr-text-2)' }} />
                 <Tooltip contentStyle={customTooltipStyle} formatter={(val) => [Number(val).toLocaleString(), 'Gas Units']} />
-                <Legend wrapperStyle={{ fontSize: '0.8rem', paddingTop: '20px' }} />
-                <Bar dataKey="measured_gas" name="Measured Gas" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="slot_estimate" name="Slot Estimate Gas" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Legend wrapperStyle={{ fontSize: 'var(--text-xs)', paddingTop: '20px' }} />
+                <Bar dataKey="measured_gas" name="Measured Gas" fill="var(--clr-approach-c)" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="slot_estimate" name="Slot Estimate Gas" fill="var(--clr-approach-b)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -422,14 +431,14 @@ export default function AnalyticsPage() {
           <div className="card-header">
             <Database size={20} style={{ color: 'var(--clr-accent)' }} />
             <div>
-              <h2 className="card-title" style={{ fontSize: '1.05rem', margin: 0 }}>
-                Storage Footprint & Overhead Comparison
+              <h2 className="card-title" style={{ fontSize: 'var(--text-lg)', margin: 0 }}>
+                Storage footprint & overhead comparison
               </h2>
             </div>
           </div>
 
           <div className="table-container mt-2">
-            <table style={{ width: '100%', fontSize: '.82rem' }}>
+            <table style={{ width: '100%', fontSize: 'var(--text-sm)' }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: 'left' }}>Approach</th>
@@ -444,7 +453,7 @@ export default function AnalyticsPage() {
               <tbody>
                 {(tables.storage_footprint || []).map((r, i) => (
                   <tr key={i}>
-                    <td><strong>Approach {r.approach}</strong></td>
+                    <td><strong>{approachLabels[r.approach] || `Approach ${r.approach}`}</strong></td>
                     <td>{r.size_label}</td>
                     <td style={{ textAlign: 'right' }}>{Number(r.raw_dataset_bytes).toLocaleString()} B</td>
                     <td style={{ textAlign: 'right' }}>{Number(r.off_chain_metadata_bytes).toLocaleString()} B</td>
@@ -467,8 +476,8 @@ export default function AnalyticsPage() {
           <div className="card-header">
             <Layers size={20} style={{ color: 'var(--clr-accent)' }} />
             <div>
-              <h2 className="card-title" style={{ fontSize: '1.05rem', margin: 0 }}>
-                Chunk-Size Sensitivity & Tradeoff Analysis
+              <h2 className="card-title" style={{ fontSize: 'var(--text-lg)', margin: 0 }}>
+                Chunk-size sensitivity & tradeoff analysis
               </h2>
             </div>
           </div>
@@ -476,14 +485,14 @@ export default function AnalyticsPage() {
           <div style={{ width: '100%', height: 300, marginTop: 'var(--sp-2)' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chunkRows} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} />
-                <XAxis dataKey="chunk_rows" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="left" stroke="#6366f1" unit=" ms" tick={{ fontSize: 11 }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#10b981" unit=" B" tick={{ fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="2 2" stroke="var(--clr-border)" strokeOpacity={0.4} vertical={false} />
+                <XAxis dataKey="chunk_rows" stroke="var(--clr-text-3)" tick={{ fontSize: 13, fill: 'var(--clr-text-2)' }} />
+                <YAxis yAxisId="left" stroke="var(--clr-approach-c)" unit=" ms" tick={{ fontSize: 13, fill: 'var(--clr-text-2)' }} />
+                <YAxis yAxisId="right" orientation="right" stroke="var(--clr-approach-b)" unit=" B" tick={{ fontSize: 13, fill: 'var(--clr-text-2)' }} />
                 <Tooltip contentStyle={customTooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: '0.8rem', paddingTop: '10px' }} />
-                <Bar yAxisId="left" dataKey="verification_ms" name="Verification Time (ms)" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                <Bar yAxisId="right" dataKey="tree_size_bytes" name="Tree Size (Bytes)" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Legend wrapperStyle={{ fontSize: 'var(--text-xs)', paddingTop: '10px' }} />
+                <Bar yAxisId="left" dataKey="verification_ms" name="Verification Time (ms)" fill="var(--clr-approach-c)" radius={[3, 3, 0, 0]} />
+                <Bar yAxisId="right" dataKey="tree_size_bytes" name="Tree Size (Bytes)" fill="var(--clr-approach-b)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -505,7 +514,7 @@ export default function AnalyticsPage() {
               Experimental Limitations
             </h3>
           </div>
-          <ul style={{ fontSize: '.82rem', color: 'var(--clr-text-2)', paddingLeft: 'var(--sp-4)', margin: 0 }}>
+          <ul style={{ fontSize: 'var(--text-sm)', color: 'var(--clr-text-2)', paddingLeft: 'var(--sp-4)', margin: 0 }}>
             <li>
               <strong>Dataset Scope:</strong> Detection and localization benchmarks were evaluated on a synthetic loan classification dataset.
             </li>
@@ -525,7 +534,7 @@ export default function AnalyticsPage() {
             borderTop: '1px solid var(--clr-border)',
             paddingTop: 'var(--sp-4)',
             paddingBottom: 'var(--sp-4)',
-            fontSize: '.75rem',
+            fontSize: 'var(--text-xs)',
             color: 'var(--clr-text-muted)',
             display: 'flex',
             flexWrap: 'wrap',

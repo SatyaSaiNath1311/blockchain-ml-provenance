@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
   UploadCloud,
@@ -16,17 +16,31 @@ import ChainStatus from './components/ChainStatus';
 const SECTIONS = ['Data', 'Integrity', 'ML & Analytics'];
 
 const NAV = [
-  { to: '/upload',       label: 'Upload',           icon: UploadCloud,  section: 'Data' },
-  { to: '/explorer',     label: 'Dataset Explorer',  icon: Database,     section: 'Data' },
-  { to: '/verify',       label: 'Verification',      icon: ShieldCheck,  section: 'Integrity' },
-  { to: '/lab',          label: 'Tampering Lab',     icon: FlaskConical, section: 'Integrity' },
-  { to: '/experiments',  label: 'ML Experiments',    icon: Cpu,          section: 'ML & Analytics' },
-  { to: '/analytics',    label: 'Analytics',         icon: BarChart2,    section: 'ML & Analytics' },
+  { to: '/upload',       label: 'Upload dataset',           icon: UploadCloud,  section: 'Data' },
+  { to: '/explorer',     label: 'Dataset explorer',         icon: Database,     section: 'Data' },
+  { to: '/verify',       label: 'Verification',             icon: ShieldCheck,  section: 'Integrity' },
+  { to: '/lab',          label: 'Tampering lab',            icon: FlaskConical, section: 'Integrity' },
+  { to: '/experiments',  label: 'ML experiments',           icon: Cpu,          section: 'ML & Analytics' },
+  { to: '/analytics',    label: 'Analytics',                icon: BarChart2,    section: 'ML & Analytics' },
 ];
 
 export default function App() {
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('theme') || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
   const location = useLocation();
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('theme', theme);
+    } catch {}
+  }, [theme]);
 
   const toggle = () =>
     setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
@@ -40,7 +54,7 @@ export default function App() {
       <aside className="app-sidebar" aria-label="Primary navigation">
         <div className="sidebar-brand">
           <div className="sidebar-brand-icon">
-            <Link2 size={16} />
+            <Link2 size={18} />
           </div>
           <div>
             <div className="sidebar-brand-name">ML Provenance</div>
@@ -52,7 +66,7 @@ export default function App() {
           {SECTIONS.map((section) => {
             const items = NAV.filter((n) => n.section === section);
             return (
-              <div key={section}>
+              <div key={section} className="nav-group">
                 <div className="nav-section-label">{section}</div>
                 {items.map(({ to, label, icon: Icon }) => (
                   <NavLink
@@ -62,8 +76,8 @@ export default function App() {
                     id={`nav-${to.replace('/', '')}`}
                     data-testid={`nav-${to.replace('/', '')}`}
                   >
-                    <Icon size={15} className="nav-icon" />
-                    {label}
+                    <Icon size={18} className="nav-icon" />
+                    <span className="nav-label">{label}</span>
                   </NavLink>
                 ))}
               </div>
@@ -74,14 +88,13 @@ export default function App() {
         <div className="sidebar-footer">
           <button
             type="button"
-            className="btn btn-ghost btn-sm"
+            className="sidebar-theme-toggle"
             onClick={toggle}
             aria-label="Toggle light/dark theme"
             id="theme-toggle"
-            style={{ width: '100%', justifyContent: 'center' }}
           >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            {theme === 'dark' ? <Sun size={18} className="nav-icon" /> : <Moon size={18} className="nav-icon" />}
+            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
           </button>
         </div>
       </aside>
@@ -103,6 +116,21 @@ export default function App() {
           {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
         </button>
       </header>
+
+      {/* Mobile and tablet navigation bar */}
+      <nav className="mobile-nav-bar" aria-label="Tablet navigation">
+        {NAV.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+            style={{ padding: '6px var(--sp-3)', fontSize: 'var(--text-xs)', whiteSpace: 'nowrap' }}
+          >
+            <Icon size={16} className="nav-icon" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
 
       {/* Main content — rendered by router */}
       <main className="app-main">
