@@ -438,26 +438,19 @@ def _evaluate_localization(
 
     if attack_name in ("modify_cells", "flip_labels"):
         rows_modified = attack_res.get("rows_modified") or attack_res.get("flipped_rows") or []
-        # Chunk 0 has 1 header row + (chunk_rows - 1) data rows.
-        # Chunk k has chunk_rows data rows.
-        # Header row count is 1.
-        # Data row i (0-indexed) maps to:
-        gt_chunks = set()
-        for r_idx in rows_modified:
-            if r_idx < (chunk_rows - 1):
-                gt_chunks.add(0)
-            else:
-                c_idx = 1 + (r_idx - (chunk_rows - 1)) // chunk_rows
-                gt_chunks.add(c_idx)
-
+        # Compute ground truth chunk indices using data row mapping (header is chunk 0)
+        gt_chunks = {1 + r_idx // chunk_rows for r_idx in rows_modified}
+        # Sanity check: flagged chunks should not exceed distinct ground-truth chunks
+        if len(flagged_indices) > len(gt_chunks):
+            print(f"Warning: flagged chunks ({len(flagged_indices)}) exceed distinct ground truth chunks ({len(gt_chunks)}) for {attack_name}")
         tp = len(flagged_indices.intersection(gt_chunks))
         fp = len(flagged_indices.difference(gt_chunks))
         fn = len(gt_chunks.difference(flagged_indices))
-
         precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
         recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
         exact_match = (flagged_indices == gt_chunks)
-
+        # first_chunk_matched is true if the smallest flagged chunk matches the smallest ground-truth chunk
+        first_chunk_matched = (min(flagged_indices) == min(gt_chunks)) if flagged_indices else False
         writer.writerow({
             "condition": cond_name,
             "attack": attack_name,
@@ -467,7 +460,7 @@ def _evaluate_localization(
             "precision": round(precision, 4),
             "recall": round(recall, 4),
             "exact_match": exact_match,
-            "first_chunk_matched": True,
+            "first_chunk_matched": first_chunk_matched,
             "chunks_flagged": len(flagged_indices),
             "rows_changed": len(rows_modified),
         })
@@ -475,27 +468,29 @@ def _evaluate_localization(
 
     elif attack_name in ("insert_rows", "delete_rows"):
         rows_changed = attack_res.get("rows_inserted") or len(attack_res.get("rows_deleted", [])) or 1
-        # For shift attacks, all chunks after insertion/deletion point shift
-        # Check if first reported chunk matches ground truth first affected chunk
-        gt_first_row = attack_res.get("insert_position") or (min(attack_res.get("rows_deleted", [0])))
-        if gt_first_row < (chunk_rows - 1):
-            gt_first_chunk = 0
-        else:
-            gt_first_chunk = 1 + (gt_first_row - (chunk_rows - 1)) // chunk_rows
-
-        first_reported = min(flagged_indices) if flagged_indices else -1
-        first_match = (first_reported == gt_first_chunk)
-
+        # Determine first affected chunk based on insert position or first deleted row
+        gt_first_row = attack_res.get("insert_position") if attack_name == "insert_rows" else min(attack_res.get("rows_deleted", [0]))
+        gt_first_chunk = 1 + gt_first_row // chunk_rows if gt_first_row >= 0 else 0
+        # Ground truth set includes all chunks from first affected chunk to the end of the longer file
+        total_chunks = max(len(orig_chunks), len(tampered_chunks))
+        gt_chunks = set(range(gt_first_chunk, total_chunks))
+        tp = len(flagged_indices.intersection(gt_chunks))
+        fp = len(flagged_indices.difference(gt_chunks))
+        fn = len(gt_chunks.difference(flagged_indices))
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 1.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 1.0
+        exact_match = (flagged_indices == gt_chunks)
+        first_chunk_matched = (min(flagged_indices) == gt_first_chunk) if flagged_indices else False
         writer.writerow({
             "condition": cond_name,
             "attack": attack_name,
             "fraction": fraction,
             "trial": trial,
             "seed": seed,
-            "precision": 0.0,
-            "recall": 1.0 if flagged_indices else 0.0,
-            "exact_match": False,
-            "first_chunk_matched": first_match,
+            "precision": round(precision, 4),
+            "recall": round(recall, 4),
+            "exact_match": exact_match,
+            "first_chunk_matched": first_chunk_matched,
             "chunks_flagged": len(flagged_indices),
             "rows_changed": rows_changed,
         })
