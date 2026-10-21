@@ -1,8 +1,8 @@
 # PLAN: A Lightweight Blockchain Framework for Data Provenance and Integrity in Machine Learning Pipelines
 
 ## Phase 0: Scope and evaluation protocol
-- [ ] Step 1. Write the threat model: attacks in scope (cell edits, row insert/delete, label flips, column swap, file replacement, version rollback, preprocessing-output tampering, metadata forgery) and out of scope (original data quality, off-chain storage availability, compromised writer key).
-- [ ] Step 2. Fix the evaluation protocol now: metrics (detection rate, false-positive rate, localization accuracy, verification time, storage and gas overhead), modification intensities (0.1%, 1%, 10% of rows), dataset sizes, 30 trials per condition, report mean ± std.
+- [x] Step 1. Write the threat model: attacks in scope (cell edits, row insert/delete, label flips, column swap, file replacement, version rollback, preprocessing-output tampering, metadata forgery) and out of scope (original data quality, off-chain storage availability, compromised writer key).
+- [x] Step 2. Fix the evaluation protocol now: metrics (detection rate, false-positive rate, localization accuracy, verification time, storage and gas overhead), modification intensities (0.1%, 1%, 10% of rows), dataset sizes, 30 trials per condition, report mean ± std.
 Validation: One-page threat model and protocol sheet exist before any code.
 
 ## Phase 1: Environment and project foundation
@@ -75,13 +75,13 @@ Validation: Every experiment identifies the exact dataset version and configurat
 ## Phase 7: Conventional versus blockchain evaluation
 - [x] Step 52. Implement baseline A: files with editable metadata and checksums.
 - [x] Step 53. Implement baseline B: Git/DVC-style versioning.
-- [ ] Step 54. Run identical registration, verification and tampering experiments on all three approaches. (code ready, full run pending)
-- [ ] Step 55. Measure hashing and verification time separately from blockchain transaction latency. (code ready, full run pending)
-- [ ] Step 56. Measure off-chain metadata storage, on-chain storage, and gas per transaction. (code ready, full run pending)
-- [ ] Step 57. Test multiple dataset sizes and the 0.1%, 1%, 10% modification intensities; compute detection rate, false-positive rate, and localization accuracy per attack type. (code ready, full run pending)
-- [ ] Step 58. Evaluate lineage reconstruction and reproducibility. (code ready, full run pending)
-- [ ] Step 59. Run 30 trials per condition; report mean ± std. (code ready, full run pending)
-- [ ] Step 60. Generate comparison charts and summary tables. (code ready, full run pending)
+- [x] Step 54. Run identical registration, verification and tampering experiments on all three approaches. (final run 20261021_070923_1481f34; results in docs/results-final)
+- [x] Step 55. Measure hashing and verification time separately from blockchain transaction latency. (final run 20261021_070923_1481f34; results in docs/results-final)
+- [x] Step 56. Measure off-chain metadata storage, on-chain storage, and gas per transaction. (final run 20261021_070923_1481f34; results in docs/results-final)
+- [x] Step 57. Test multiple dataset sizes and the 0.1%, 1%, 10% modification intensities; compute detection rate, false-positive rate, and localization accuracy per attack type. (final run; detection and localization on the ~1 MB file, timing, gas and storage at 1/10/100 MB)
+- [x] Step 58. Evaluate lineage reconstruction and reproducibility. (final run; reproducibility run for approach C only)
+- [x] Step 59. Run 30 trials per condition; report mean ± std. (final run 20261021_070923_1481f34; results in docs/results-final)
+- [x] Step 60. Generate comparison charts and summary tables. (final run 20261021_070923_1481f34; results in docs/results-final)
 Validation: Results tables cover all three approaches, with variability reported.
 
 ## Phase 8: React UI
