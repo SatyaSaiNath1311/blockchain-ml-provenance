@@ -1,0 +1,14 @@
+| condition | attack | trials | precision_mean | recall_mean | exact_match_pct | first_chunk_match_pct |
+| --- | --- | --- | --- | --- | --- | --- |
+| delete_rows_0.001 | delete_rows | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| delete_rows_0.01 | delete_rows | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| delete_rows_0.1 | delete_rows | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| flip_labels_0.001 | flip_labels | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| flip_labels_0.01 | flip_labels | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| flip_labels_0.1 | flip_labels | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| insert_rows_0.001 | insert_rows | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| insert_rows_0.01 | insert_rows | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| insert_rows_0.1 | insert_rows | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| modify_cells_0.001 | modify_cells | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| modify_cells_0.01 | modify_cells | 30 | 1.0 | 1.0 | 100.0 | 100.0 |
+| modify_cells_0.1 | modify_cells | 30 | 1.0 | 1.0 | 100.0 | 100.0 |

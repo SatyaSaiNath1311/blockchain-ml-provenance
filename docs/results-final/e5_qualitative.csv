@@ -1,0 +1,6 @@
+property,approach_a,approach_b,approach_c
+Immutability of Version Records,None (manifest is editable file),Local Git history (rewritable via git commit --amend),Ethereum Smart Contract (immutable append-only)
+Independent Trust Boundary,Local filesystem,Local git repository,Decentralized consensus (no trusted local file)
+Detects Smart Attacker (File + Metadata sync),No (manifest hash updated),No (git commit amended),Yes (on-chain hash and root mismatch)
+Proves Model-to-Dataset Version Link Without Local Trust,No,No,Yes (on-chain TrainingRunRecorded anchoring)
+Granular Tampering Localization,None (full file hash only),None (full file hash only),Merkle tree chunk-level localization

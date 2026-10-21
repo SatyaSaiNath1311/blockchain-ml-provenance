@@ -1,0 +1,4 @@
+chunk_rows,num_chunks,tree_size_bytes,verification_ms_mean,verification_ms_std,granularity_rows_per_chunk
+100,1751,259803,50.173,1.386,100
+1000,176,26519,46.257,0.435,1000
+10000,19,3321,46.325,1.506,10000

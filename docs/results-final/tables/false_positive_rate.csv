@@ -1,0 +1,4 @@
+approach,clean_trials,false_positives,fpr,fpr_ci_lower_95,fpr_ci_upper_95
+A,100,0,0.0,0.0,0.037
+B,100,0,0.0,0.0,0.037
+C,100,0,0.0,0.0,0.037

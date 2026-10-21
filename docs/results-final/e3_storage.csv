@@ -1,0 +1,16 @@
+approach,size_label,raw_dataset_bytes,off_chain_metadata_bytes,overhead_percent,on_chain_calldata_bytes,on_chain_storage_slots,measured_gas_used,slot_derived_gas_estimate,tx_latency_ms,tx_latency_in_pipeline_ms,tx_latency_median_ms,tx_latency_max_ms,gate_time_ms,operation
+A,1MB,1010879,316,0.0313,0,0,0,0,0.0,,,,,register_root
+B,1MB,1010879,1118,0.1106,0,0,0,0,0.0,,,,,register_root
+C,1MB,1010879,4478,0.443,228,11,253568,242000,17.8625,,,,,register_root
+C,1MB,1010879,4545,0.4496,228,11,260804,247000,16.1685,,,,,register_child
+C,1MB,1010879,0,0.0,100,5,139607,131500,13.7893,15.749,13.7893,14.9868,14.404,record_training_run
+A,10MB,10287510,318,0.0031,0,0,0,0,0.0,,,,,register_root
+B,10MB,10287510,1122,0.0109,0,0,0,0,0.0,,,,,register_root
+C,10MB,10287510,27680,0.2691,228,11,253568,242000,16.8046,,,,,register_root
+C,10MB,10287510,27747,0.2697,228,11,260768,247000,17.6289,,,,,register_child
+C,10MB,10287510,0,0.0,100,5,139607,131500,13.8362,18.732,13.8362,36.2211,38.021,record_training_run
+A,100MB,104626448,321,0.0003,0,0,0,0,0.0,,,,,register_root
+B,100MB,104626448,1127,0.0011,0,0,0,0,0.0,,,,,register_root
+C,100MB,104626448,260968,0.2494,228,11,253592,242000,15.9102,,,,,register_root
+C,100MB,104626448,261035,0.2495,228,11,260804,247000,16.561,,,,,register_child
+C,100MB,104626448,0,0.0,100,5,139607,131500,14.1355,165.512,14.1355,16.6418,293.914,record_training_run

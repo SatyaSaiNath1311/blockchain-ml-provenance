@@ -1,0 +1,10 @@
+operation,size_label,measured_gas_used,slot_derived_gas_estimate,on_chain_calldata_bytes,on_chain_storage_slots,tx_latency_ms
+register_root,1MB,253568,242000,228,11,17.8625
+register_child,1MB,260804,247000,228,11,16.1685
+record_training_run,1MB,139607,131500,100,5,13.7893
+register_root,10MB,253568,242000,228,11,16.8046
+register_child,10MB,260768,247000,228,11,17.6289
+record_training_run,10MB,139607,131500,100,5,13.8362
+register_root,100MB,253592,242000,228,11,15.9102
+register_child,100MB,260804,247000,228,11,16.561
+record_training_run,100MB,139607,131500,100,5,14.1355

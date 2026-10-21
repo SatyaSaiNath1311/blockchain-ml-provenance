@@ -1,0 +1,43 @@
+{
+  "timestamp_utc": "2026-10-21T07:09:24.422829+00:00",
+  "git_commit": "1481f344e560903926445098d2020ff7cb03ff7c",
+  "git_dirty": false,
+  "profile": "full",
+  "trials_per_condition": 30,
+  "clean_trials_fpr": 100,
+  "base_seed": 42,
+  "chunk_rows": [
+    100,
+    1000,
+    10000
+  ],
+  "e4_dataset_label": "10MB",
+  "e4_note": "E4 chunk rows scaled for full profile ([100, 1000, 10000]) producing >= 10 chunks on 10MB.",
+  "estimated_runtime_seconds": 374.5,
+  "software_versions": {
+    "python": "3.14.2",
+    "pandas": "3.0.6",
+    "numpy": "2.5.4",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "matplotlib": "3.11.2",
+    "joblib": "1.6.0",
+    "web3": "8.0.0",
+    "fastapi": "0.143.0"
+  },
+  "platform": {
+    "system": "Darwin",
+    "release": "27.0.0",
+    "machine": "arm64",
+    "cpu_count": 8
+  },
+  "toolchain": {
+    "node": "v25.8.0",
+    "hardhat": "3.20.0"
+  },
+  "blockchain": {
+    "chain_id": 31337,
+    "block_gas_limit": 60000000,
+    "contract_address": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+  }
+}
