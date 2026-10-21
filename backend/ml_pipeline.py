@@ -392,11 +392,14 @@ def train_on_version(
 
         # Anchor on-chain
         try:
+            # Timing the transaction latency
+            t_tx_start = time.perf_counter()
             receipt = client.record_training_run(
                 run_id=run_id,
                 dataset_version_id=v_id,
                 experiment_digest=experiment_digest,
             )
+            tx_latency_ms = (time.perf_counter() - t_tx_start) * 1000.0
             with open(exp_dir / f"{run_id}.receipt.json", "w", encoding="utf-8") as f:
                 json.dump(receipt, f, indent=2)
 
@@ -409,6 +412,7 @@ def train_on_version(
                 "timings_ms": {
                     "gate_time_ms": round(gate_time_ms, 3),
                     "train_time_ms": round(train_time_ms, 3),
+                    "tx_latency_ms": round(tx_latency_ms, 3),
                 },
             }
         except Exception:

@@ -211,6 +211,7 @@ def test_training_on_verified_version_and_chain_anchoring(base_dataset_fixture):
     assert train_res["metrics"]["accuracy"] > 0.5
     assert train_res["timings_ms"]["gate_time_ms"] > 0
     assert train_res["timings_ms"]["train_time_ms"] > 0
+    assert train_res["timings_ms"]["tx_latency_ms"] > 0
 
     # Verify on-chain run record
     on_chain_run = default_chain_client.get_run(run_id)

@@ -45,6 +45,7 @@ def run_e3_experiments(
         "measured_gas_used",
         "slot_derived_gas_estimate",
         "tx_latency_ms",
+        "gate_time_ms",
         "operation",
     ]
     e3_file = open(e3_csv_path, "w", newline="", encoding="utf-8")
@@ -106,13 +107,20 @@ def run_e3_experiments(
                     "operation": "register_root",
                 })
 
+                # slot_derived_gas_estimate counts storage writes only
+                # (21000 base + 22100 per new zero->nonzero slot + 5000 per nonzero->nonzero update).
+                # It is an approximate storage-write estimate: slots read earlier in the transaction
+                # are warm and cost 20000 instead of 22100, and calldata, events and reads add
+                # overhead. measured_gas_used is the headline figure.
+
                 # Approach C: Root Version
                 reg_c_root = app_c.register(dataset_path, operation_type="ingest")
                 foot_c_root = app_c.storage_footprint(reg_c_root["version_id"])
                 pct_c = (foot_c_root["total_off_chain_bytes"] / raw_bytes * 100.0) if raw_bytes > 0 else 0.0
-                slots_root = 6
-                # Approx slot gas: 21,000 base + 6 * 22,100 = 153,600
-                slot_est_root = 21000 + slots_root * 22100
+                # 11 locations written (8 struct incl. zero-valued parent slot, exists flag, array length,
+                # array element); 10 are new nonzero writes.
+                slots_root = 11
+                slot_est_root = 21000 + 10 * 22100  # 10 new nonzero slots; = 242000
                 writer.writerow({
                     "approach": "C",
                     "size_label": label,
@@ -134,6 +142,9 @@ def run_e3_experiments(
                     operation_type="clean",
                 )
                 foot_c_child = app_c.storage_footprint(reg_c_child["version_id"])
+                # 10 new nonzero slots (8 struct, exists, array element) + array length update at 5000.
+                slots_child = 11
+                slot_est_child = 21000 + 10 * 22100 + 5000  # = 247000
                 writer.writerow({
                     "approach": "C",
                     "size_label": label,
@@ -141,8 +152,8 @@ def run_e3_experiments(
                     "off_chain_metadata_bytes": foot_c_child["total_off_chain_bytes"],
                     "overhead_percent": round(foot_c_child["total_off_chain_bytes"] / raw_bytes * 100.0, 4),
                     "on_chain_calldata_bytes": foot_c_child["on_chain_calldata_bytes"],
-                    "on_chain_storage_slots": slots_root,
-                    "slot_derived_gas_estimate": slot_est_root,
+                    "on_chain_storage_slots": slots_child,
+                    "slot_derived_gas_estimate": slot_est_child,
                     "measured_gas_used": foot_c_child["gas_used"],
                     "tx_latency_ms": round(reg_c_child["timings"]["tx_latency_ms"], 4),
                     "operation": "register_child",
@@ -155,9 +166,10 @@ def run_e3_experiments(
                     chain_client=app_c.client,
                 )
                 run_rcpt = train_res["receipt"]
-                # Training run struct: runId, datasetVersionId, recordDigest, submitter, timestamp = 4 slots
-                slots_run = 4
-                slot_est_run = 21000 + slots_run * 22100
+                # TrainingRunRecord = 4 slots (runId, datasetVersionId, experimentDigest,
+                # submitter+timestamp packed) + _runExists = 5.
+                slots_run = 5
+                slot_est_run = 21000 + slots_run * 22100  # 5 new nonzero slots; = 131500
                 writer.writerow({
                     "approach": "C",
                     "size_label": label,
@@ -167,8 +179,9 @@ def run_e3_experiments(
                     "on_chain_calldata_bytes": 4 + 3 * 32,  # 100 bytes
                     "on_chain_storage_slots": slots_run,
                     "slot_derived_gas_estimate": slot_est_run,
-                    "measured_gas_used": run_rcpt.get("gas_used", 0),
-                    "tx_latency_ms": round(train_res.get("timings_ms", {}).get("gate_time_ms", 0.0), 4),
+                    "measured_gas_used": run_rcpt["gas_used"],
+                    "tx_latency_ms": round(train_res["timings_ms"]["tx_latency_ms"], 4),
+                    "gate_time_ms": round(train_res["timings_ms"]["gate_time_ms"], 4),
                     "operation": "record_training_run",
                 })
                 e3_file.flush()

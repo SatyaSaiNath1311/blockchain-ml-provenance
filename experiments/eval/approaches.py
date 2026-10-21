@@ -709,15 +709,14 @@ class ApproachC(BaselineApproach):
             raw_bytes = meta.get("size_bytes", 0)
 
         # On-chain footprint
-        # VersionRecord struct:
-        # datasetId (bytes32, slot 1)
-        # versionId (bytes32, slot 2)
-        # parentVersionId (bytes32, slot 3)
-        # fileHash (bytes32, slot 4)
-        # merkleRoot (bytes32, slot 5)
-        # numChunks (uint32) + submitter (address) + timestamp (uint64) packed into slot 6
-        # Total storage slots allocated = 6 slots per version
-        on_chain_slots = 6
+        # VersionRecord struct (8 slots):
+        # datasetId (slot 0), versionId (slot 1), parentVersionId (slot 2),
+        # fileHash (slot 3), merkleRoot (slot 4), numChunks uint32 alone (slot 5),
+        # metadataDigest (slot 6), submitter+timestamp packed (slot 7).
+        # Plus _versionExists[versionId] (1 slot) and datasetVersions push
+        # (array length + element = 2 slots). Total 11 locations written.
+        # Root: parentVersionId is zero-valued (10 new nonzero). Child: all 11 are nonzero (10 new + 1 update).
+        on_chain_slots = 11
         gas_used = 0
         calldata_bytes = 4 + 7 * 32  # 4 bytes selector + 7 params (228 bytes)
         if rcpt_file.exists():
