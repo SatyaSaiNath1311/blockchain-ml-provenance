@@ -7,10 +7,14 @@ Writes raw CSV results: e3_storage.csv.
 
 import csv
 import json
+import os
 from pathlib import Path
 import shutil
+import statistics
 import tempfile
+import time
 from typing import Any
+import uuid
 
 import pandas as pd
 
@@ -45,6 +49,9 @@ def run_e3_experiments(
         "measured_gas_used",
         "slot_derived_gas_estimate",
         "tx_latency_ms",
+        "tx_latency_in_pipeline_ms",
+        "tx_latency_median_ms",
+        "tx_latency_max_ms",
         "gate_time_ms",
         "operation",
     ]
@@ -166,6 +173,29 @@ def run_e3_experiments(
                     chain_client=app_c.client,
                 )
                 run_rcpt = train_res["receipt"]
+                pipeline_tx_lat = train_res["timings_ms"]["tx_latency_ms"]
+                gate_time = train_res["timings_ms"]["gate_time_ms"]
+
+                # Send 10 additional record_training_run calls directly to measure isolated tx latency.
+                # The in-pipeline call runs right after model training, so its latency can be affected
+                # by host effects such as memory pressure. Gas is kept from the pipeline call because it
+                # is deterministic; the median of the 10 isolated calls is the headline latency figure.
+                extra_latencies_ms: list[float] = []
+                for _ in range(10):
+                    extra_run_id = uuid.uuid4()
+                    extra_digest = os.urandom(32)
+                    t0 = time.perf_counter()
+                    app_c.client.record_training_run(
+                        run_id=extra_run_id,
+                        dataset_version_id=reg_c_root["version_id"],
+                        experiment_digest=extra_digest,
+                    )
+                    t1 = time.perf_counter()
+                    extra_latencies_ms.append((t1 - t0) * 1000.0)
+
+                median_tx_lat = float(statistics.median(extra_latencies_ms))
+                max_tx_lat = float(max(extra_latencies_ms))
+
                 # TrainingRunRecord = 4 slots (runId, datasetVersionId, experimentDigest,
                 # submitter+timestamp packed) + _runExists = 5.
                 slots_run = 5
@@ -180,8 +210,11 @@ def run_e3_experiments(
                     "on_chain_storage_slots": slots_run,
                     "slot_derived_gas_estimate": slot_est_run,
                     "measured_gas_used": run_rcpt["gas_used"],
-                    "tx_latency_ms": round(train_res["timings_ms"]["tx_latency_ms"], 4),
-                    "gate_time_ms": round(train_res["timings_ms"]["gate_time_ms"], 4),
+                    "tx_latency_ms": round(median_tx_lat, 4),
+                    "tx_latency_in_pipeline_ms": round(pipeline_tx_lat, 4),
+                    "tx_latency_median_ms": round(median_tx_lat, 4),
+                    "tx_latency_max_ms": round(max_tx_lat, 4),
+                    "gate_time_ms": round(gate_time, 4),
                     "operation": "record_training_run",
                 })
                 e3_file.flush()

@@ -250,7 +250,23 @@ def test_analyze_script_reads_only_csv_with_no_hardcoding(tmp_path):
 
     # 3. e3_storage.csv
     e3_rows = [
-        {"approach": "A", "size_label": "1MB", "raw_dataset_bytes": 1048576, "off_chain_metadata_bytes": 500, "overhead_percent": 0.0477, "on_chain_calldata_bytes": 0, "on_chain_storage_slots": 0, "slot_derived_gas_estimate": 0, "measured_gas_used": 0, "tx_latency_ms": 0.0, "operation": "register_root"}
+        {
+            "approach": "A",
+            "size_label": "1MB",
+            "raw_dataset_bytes": 1048576,
+            "off_chain_metadata_bytes": 500,
+            "overhead_percent": 0.0477,
+            "on_chain_calldata_bytes": 0,
+            "on_chain_storage_slots": 0,
+            "slot_derived_gas_estimate": 0,
+            "measured_gas_used": 0,
+            "tx_latency_ms": 0.0,
+            "tx_latency_in_pipeline_ms": 0.0,
+            "tx_latency_median_ms": 0.0,
+            "tx_latency_max_ms": 0.0,
+            "gate_time_ms": 0.0,
+            "operation": "register_root",
+        }
     ]
     pd.DataFrame(e3_rows).to_csv(res_dir / "e3_storage.csv", index=False)
 
