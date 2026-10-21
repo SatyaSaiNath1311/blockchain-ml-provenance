@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
@@ -46,6 +47,11 @@ DEFAULT_MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB default
 def get_storage_dir() -> Path:
     """Resolve storage root from environment or default."""
     return Path(os.getenv("STORAGE_DIR", "./storage")).resolve()
+
+
+def get_project_root() -> Path:
+    """Resolve project repository root."""
+    return Path(__file__).resolve().parent.parent
 
 
 def get_max_upload_size() -> int:
@@ -206,6 +212,64 @@ def health_check() -> dict[str, Any]:
 # -----------------------------------------------------------------------------
 # Endpoints
 # -----------------------------------------------------------------------------
+
+_ANALYTICS_TABLES_ALLOWLIST: tuple[str, ...] = (
+    "detection_rates",
+    "false_positive_rate",
+    "localization_accuracy",
+    "timing_breakdown",
+    "gas_and_slots",
+    "storage_footprint",
+    "chunk_size_sensitivity",
+    "lineage_summary",
+    "qualitative_comparison",
+)
+
+
+@app.get("/analytics/results")
+def get_analytics_results() -> dict[str, Any]:
+    """Read-only endpoint returning allow-listed benchmark evaluation tables and metadata."""
+    project_root = get_project_root()
+    results_dir = project_root / "docs" / "results-final"
+    tables_dir = results_dir / "tables"
+    metadata_file = results_dir / "run_metadata.json"
+
+    if not results_dir.exists() or not tables_dir.exists() or not metadata_file.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Benchmark results folder docs/results-final not found or incomplete",
+        )
+
+    try:
+        with open(metadata_file, "r", encoding="utf-8") as f:
+            metadata = json.load(f)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load run_metadata.json: {exc}",
+        ) from exc
+
+    tables: dict[str, list[dict[str, Any]]] = {}
+    for table_name in _ANALYTICS_TABLES_ALLOWLIST:
+        csv_file = tables_dir / f"{table_name}.csv"
+        if not csv_file.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Allow-listed table file {table_name}.csv not found",
+            )
+        try:
+            df = pd.read_csv(csv_file)
+            tables[table_name] = df.replace({np.nan: None}).to_dict(orient="records")
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to parse table {table_name}.csv: {exc}",
+            ) from exc
+
+    return {
+        "tables": tables,
+        "metadata": metadata,
+    }
 
 
 @app.get("/datasets")

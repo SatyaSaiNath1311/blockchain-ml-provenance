@@ -6,18 +6,22 @@ import {
   ShieldCheck,
   FlaskConical,
   BarChart2,
+  Cpu,
   Sun,
   Moon,
   Link2,
 } from 'lucide-react';
 import ChainStatus from './components/ChainStatus';
 
+const SECTIONS = ['Data', 'Integrity', 'ML & Analytics'];
+
 const NAV = [
   { to: '/upload',       label: 'Upload',           icon: UploadCloud,  section: 'Data' },
   { to: '/explorer',     label: 'Dataset Explorer',  icon: Database,     section: 'Data' },
-  { to: '/verify',       label: 'Verification',      icon: ShieldCheck,  section: 'Analysis' },
-  { to: '/lab',          label: 'Tampering Lab',     icon: FlaskConical, section: 'Analysis' },
-  { to: '/experiments',  label: 'Experiments',       icon: BarChart2,    section: 'Task B (coming)' },
+  { to: '/verify',       label: 'Verification',      icon: ShieldCheck,  section: 'Integrity' },
+  { to: '/lab',          label: 'Tampering Lab',     icon: FlaskConical, section: 'Integrity' },
+  { to: '/experiments',  label: 'ML Experiments',    icon: Cpu,          section: 'ML & Analytics' },
+  { to: '/analytics',    label: 'Analytics',         icon: BarChart2,    section: 'ML & Analytics' },
 ];
 
 export default function App() {
@@ -45,7 +49,7 @@ export default function App() {
         </div>
 
         <nav className="sidebar-nav">
-          {['Data', 'Analysis', 'Task B (coming)'].map((section) => {
+          {SECTIONS.map((section) => {
             const items = NAV.filter((n) => n.section === section);
             return (
               <div key={section}>
@@ -56,6 +60,7 @@ export default function App() {
                     to={to}
                     className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
                     id={`nav-${to.replace('/', '')}`}
+                    data-testid={`nav-${to.replace('/', '')}`}
                   >
                     <Icon size={15} className="nav-icon" />
                     {label}

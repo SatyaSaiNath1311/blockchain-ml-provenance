@@ -197,3 +197,48 @@ def test_tamper_demo_swap_columns_no_fraction(isolated_storage):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["attack_details"]["attack"] == "swap_columns"
+
+
+# ---------------------------------------------------------------------------
+# GET /analytics/results – read-only allow-listed benchmark results
+# ---------------------------------------------------------------------------
+
+def test_analytics_results_success():
+    from backend.main import _ANALYTICS_TABLES_ALLOWLIST
+
+    resp = client.get("/analytics/results")
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    assert "tables" in data
+    assert "metadata" in data
+
+    tables = data["tables"]
+    for table_name in _ANALYTICS_TABLES_ALLOWLIST:
+        assert table_name in tables, f"Missing table {table_name}"
+        assert isinstance(tables[table_name], list)
+        assert len(tables[table_name]) > 0, f"Table {table_name} is empty"
+
+    metadata = data["metadata"]
+    assert "git_commit" in metadata
+    assert "timestamp_utc" in metadata
+    assert "software_versions" in metadata
+
+
+def test_analytics_results_strictly_allowlisted_no_other_files():
+    from backend.main import _ANALYTICS_TABLES_ALLOWLIST
+
+    resp = client.get("/analytics/results")
+    assert resp.status_code == 200
+    tables = resp.json()["tables"]
+    assert set(tables.keys()) == set(_ANALYTICS_TABLES_ALLOWLIST)
+
+
+def test_analytics_results_missing_directory_returns_404(monkeypatch, tmp_path):
+    import backend.main
+
+    monkeypatch.setattr(backend.main, "get_project_root", lambda: tmp_path)
+    resp = client.get("/analytics/results")
+    assert resp.status_code == 404
+    assert "not found" in resp.json()["detail"].lower()
+

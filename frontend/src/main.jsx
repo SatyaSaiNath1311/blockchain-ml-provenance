@@ -7,7 +7,8 @@ import UploadPage from './pages/UploadPage.jsx';
 import ExplorerPage from './pages/ExplorerPage.jsx';
 import VerificationPage from './pages/VerificationPage.jsx';
 import TamperingLabPage from './pages/TamperingLabPage.jsx';
-import PlaceholderPage from './pages/PlaceholderPage.jsx';
+import ExperimentsPage from './pages/ExperimentsPage.jsx';
+import AnalyticsPage from './pages/AnalyticsPage.jsx';
 
 const router = createBrowserRouter([
   {
@@ -19,7 +20,8 @@ const router = createBrowserRouter([
       { path: 'explorer',    element: <ExplorerPage /> },
       { path: 'verify',      element: <VerificationPage /> },
       { path: 'lab',         element: <TamperingLabPage /> },
-      { path: 'experiments', element: <PlaceholderPage title="Experiments" desc="ML experiment analytics — Task B." /> },
+      { path: 'experiments', element: <ExperimentsPage /> },
+      { path: 'analytics',   element: <AnalyticsPage /> },
     ],
   },
 ]);

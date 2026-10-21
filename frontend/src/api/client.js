@@ -93,3 +93,16 @@ export const getExperiment = (runId) =>
 
 export const getVersionExperiments = (versionId) =>
   api.get(`/versions/${versionId}/experiments`).then((r) => r.data);
+
+export const preprocessVersion = (versionId) =>
+  api.post(`/versions/${versionId}/preprocess`).then((r) => r.data);
+
+export const trainVersion = (versionId, config = null) =>
+  api.post(`/versions/${versionId}/train`, config).then((r) => r.data);
+
+export const reproduceExperiment = (runId) =>
+  api.post(`/experiments/${runId}/reproduce`).then((r) => r.data);
+
+export const getAnalyticsResults = () =>
+  api.get('/analytics/results').then((r) => r.data);
+
