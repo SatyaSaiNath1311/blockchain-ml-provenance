@@ -194,6 +194,10 @@ def analyze_results(results_dir: Path | str) -> dict[str, Any]:
             stats_hash = summary_stats(group["hashing_ms"])
             stats_merkle = summary_stats(group["merkle_ms"])
             stats_tx = summary_stats(group["tx_latency_ms"])
+            chain_read = group["chain_read_ms"].fillna(0.0)
+            other = (group["total_ms"] - group["hashing_ms"].fillna(0.0)
+                     - group["merkle_ms"].fillna(0.0) - chain_read
+                     - group["tx_latency_ms"].fillna(0.0))
             t_rows.append({
                 "approach": app,
                 "size_label": sz,
@@ -207,6 +211,9 @@ def analyze_results(results_dir: Path | str) -> dict[str, Any]:
                 "hashing_ms_mean": round(stats_hash["mean"], 3),
                 "merkle_ms_mean": round(stats_merkle["mean"], 3),
                 "tx_latency_ms_mean": round(stats_tx["mean"], 3),
+                "chain_read_ms_mean": round(float(chain_read.mean()), 3),
+                "other_ms_mean": round(float(other.mean()), 3),
+                "other_ms_median": round(float(other.median()), 3),
             })
         df_timing = pd.DataFrame(t_rows)
         df_timing.to_csv(tables_dir / "timing_breakdown.csv", index=False)
@@ -247,7 +254,11 @@ def analyze_results(results_dir: Path | str) -> dict[str, Any]:
     if e3_path.exists():
         df_e3 = pd.read_csv(e3_path)
         df_e3.to_csv(tables_dir / "storage_footprint.csv", index=False)
-        (tables_dir / "storage_footprint.md").write_text(df_to_markdown(df_e3), encoding="utf-8")
+        df_e3_md = df_e3.copy().astype(object)
+        _mask = df_e3_md["operation"] == "record_training_run"
+        df_e3_md.loc[_mask, ["off_chain_metadata_bytes", "overhead_percent"]] = "n/a"
+        df_e3_md = df_e3_md.where(df_e3_md.notna(), "")
+        (tables_dir / "storage_footprint.md").write_text(df_to_markdown(df_e3_md), encoding="utf-8")
 
         # Gas Table for Approach C (measured gasUsed is primary, slot-derived is cross-check)
         df_c_gas = df_e3[df_e3["approach"] == "C"][[
@@ -353,12 +364,23 @@ def analyze_results(results_dir: Path | str) -> dict[str, Any]:
     if e5_path.exists():
         df_e5 = pd.read_csv(e5_path)
         df_e5.to_csv(tables_dir / "lineage_and_contamination.csv", index=False)
-        (tables_dir / "lineage_and_contamination.md").write_text(df_to_markdown(df_e5), encoding="utf-8")
+        _keys = ["approach", "experiment_type", "scenario"]
+        df_e5_agg = df_e5.groupby(_keys + ["detection_status"]).size().reset_index(name="trials")
+        _tot = df_e5.groupby(_keys).size().reset_index(name="total_trials")
+        df_e5_agg = df_e5_agg.merge(_tot, on=_keys)
+        df_e5_agg.to_csv(tables_dir / "lineage_summary.csv", index=False)
+        (tables_dir / "lineage_and_contamination.md").write_text(df_to_markdown(df_e5_agg), encoding="utf-8")
 
     # Qualitative Table
     e5_q_path = r_dir / "e5_qualitative.csv"
     if e5_q_path.exists():
         df_qual = pd.read_csv(e5_q_path)
+        df_qual = df_qual.replace({
+            "Ethereum Smart Contract (immutable append-only)":
+                "Append-only smart contract; immutability holds on a public or permissioned chain (emulated here by a local Hardhat node that is not persistent across restarts)",
+            "Decentralized consensus (no trusted local file)":
+                "Consensus-backed record on a public or permissioned chain (no trusted local file; emulated here by a local node)",
+        })
         df_qual.to_csv(tables_dir / "qualitative_comparison.csv", index=False)
         (tables_dir / "qualitative_comparison.md").write_text(df_to_markdown(df_qual), encoding="utf-8")
 
