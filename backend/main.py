@@ -5,6 +5,7 @@ import os
 import platform
 import shutil
 import subprocess
+import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
@@ -205,6 +206,169 @@ def health_check() -> dict[str, Any]:
 # -----------------------------------------------------------------------------
 # Endpoints
 # -----------------------------------------------------------------------------
+
+
+@app.get("/datasets")
+def list_datasets() -> list[dict[str, Any]]:
+    """List all datasets found in the off-chain metadata store."""
+    storage_root = get_storage_dir()
+    metadata_dir = storage_root / "metadata"
+    if not metadata_dir.exists():
+        return []
+
+    results: dict[str, dict[str, Any]] = {}
+    for meta_file in sorted(metadata_dir.glob("*.json")):
+        try:
+            with open(meta_file, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        except Exception:
+            continue
+
+        ds_id = meta.get("dataset_id")
+        if not ds_id:
+            continue
+
+        if ds_id not in results:
+            results[ds_id] = {
+                "dataset_id": ds_id,
+                "filename": meta.get("filename"),
+                "size_bytes": meta.get("size_bytes"),
+                "created_at": meta.get("created_at"),
+                "version_count": 0,
+            }
+        results[ds_id]["version_count"] += 1
+
+    return list(results.values())
+
+
+# ---------------------------------------------------------------------------
+# Tamper-demo constants – must match what tamper.py supports
+# ---------------------------------------------------------------------------
+_TAMPER_ATTACKS_WITH_FRACTION: frozenset[str] = frozenset(
+    {"modify_cells", "delete_rows", "insert_rows", "flip_labels", "modify_preprocessing_output"}
+)
+_TAMPER_ATTACKS_NO_FRACTION: frozenset[str] = frozenset({"swap_columns", "replace_file"})
+_ALL_TAMPER_ATTACKS: frozenset[str] = _TAMPER_ATTACKS_WITH_FRACTION | _TAMPER_ATTACKS_NO_FRACTION
+_VALID_FRACTIONS: frozenset[float] = frozenset({0.001, 0.01, 0.1})
+
+
+from pydantic import BaseModel
+
+
+class _TamperBody(BaseModel):
+    attack: str
+    fraction: float | None = None
+    seed: int = 42
+
+
+@app.post("/versions/{version_id}/tamper-demo")
+def tamper_demo_endpoint(version_id: str, body: _TamperBody) -> dict[str, Any]:
+    """Apply a controlled tamper attack to a *temp copy* of the stored file and verify it.
+
+    The original stored file is NEVER modified or deleted.
+    """
+    # 1. Validate version_id
+    try:
+        uuid.UUID(version_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Malformed version ID: {version_id}",
+        )
+
+    # 2. Validate attack name
+    if body.attack not in _ALL_TAMPER_ATTACKS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown attack '{body.attack}'. Supported: {sorted(_ALL_TAMPER_ATTACKS)}",
+        )
+
+    # 3. Validate fraction when required
+    if body.attack in _TAMPER_ATTACKS_WITH_FRACTION:
+        if body.fraction is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"attack '{body.attack}' requires a fraction parameter",
+            )
+        if body.fraction not in _VALID_FRACTIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"fraction must be one of {sorted(_VALID_FRACTIONS)}, got {body.fraction}",
+            )
+
+    # 4. Look up the version on-chain
+    try:
+        if not default_chain_client.version_exists(version_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Version {version_id} not registered on blockchain",
+            )
+        chain_rec = default_chain_client.get_version(version_id)
+    except (ChainUnavailable, StaleDeployment) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except HTTPException:
+        raise
+
+    dataset_id = chain_rec["dataset_id"]
+    storage_root = get_storage_dir()
+
+    # 5. Locate original stored file
+    upload_dir = storage_root / "uploads" / dataset_id / version_id
+    if not upload_dir.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Stored file directory for version {version_id} not found",
+        )
+    candidates = [f for f in upload_dir.iterdir() if f.is_file() and not f.name.startswith(".")]
+    if not candidates:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No stored file found for version {version_id}",
+        )
+    original_file = candidates[0]
+
+    # 6. Copy to a temp file – NEVER touch the original
+    temp_dir_obj = tempfile.mkdtemp(prefix="tamper_demo_")
+    temp_path = Path(temp_dir_obj) / original_file.name
+    try:
+        shutil.copy2(original_file, temp_path)
+
+        # 7. Import tamper module and apply attack
+        tamper_mod = importlib.import_module("experiments.tamper")
+        attack_fn = getattr(tamper_mod, body.attack)
+
+        try:
+            if body.attack in _TAMPER_ATTACKS_WITH_FRACTION:
+                attack_result = attack_fn(temp_path, fraction=body.fraction, seed=body.seed)
+            else:
+                attack_result = attack_fn(temp_path, seed=body.seed)
+        except AssertionError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Attack produced no change on this file (try a larger fraction or another seed): {exc}",
+            ) from exc
+
+        # 8. Verify the tampered copy against the on-chain record
+        verify_result = verify_version(
+            version_id=version_id,
+            file_path=temp_path,
+            storage_dir=storage_root,
+            chain_client=default_chain_client,
+        )
+
+    finally:
+        # Always delete temp copy – original never touched
+        shutil.rmtree(temp_dir_obj, ignore_errors=True)
+
+    return {
+        "attack_details": attack_result,
+        "verify_result": verify_result,
+        "original_file_preserved": True,
+    }
+
 
 @app.post("/datasets", status_code=status.HTTP_201_CREATED)
 async def upload_root_dataset(

@@ -1,122 +1,108 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import {
+  UploadCloud,
+  Database,
+  ShieldCheck,
+  FlaskConical,
+  BarChart2,
+  Sun,
+  Moon,
+  Link2,
+} from 'lucide-react';
+import ChainStatus from './components/ChainStatus';
 
-function App() {
-  const [count, setCount] = useState(0)
+const NAV = [
+  { to: '/upload',       label: 'Upload',           icon: UploadCloud,  section: 'Data' },
+  { to: '/explorer',     label: 'Dataset Explorer',  icon: Database,     section: 'Data' },
+  { to: '/verify',       label: 'Verification',      icon: ShieldCheck,  section: 'Analysis' },
+  { to: '/lab',          label: 'Tampering Lab',     icon: FlaskConical, section: 'Analysis' },
+  { to: '/experiments',  label: 'Experiments',       icon: BarChart2,    section: 'Task B (coming)' },
+];
+
+export default function App() {
+  const [theme, setTheme] = useState('dark');
+  const location = useLocation();
+
+  const toggle = () =>
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div
+      className="app-layout"
+      data-theme={theme}
+    >
+      {/* Sidebar */}
+      <aside className="app-sidebar" aria-label="Primary navigation">
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-icon">
+            <Link2 size={16} />
+          </div>
+          <div>
+            <div className="sidebar-brand-name">ML Provenance</div>
+            <div className="sidebar-brand-sub">Blockchain Integrity</div>
+          </div>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
+
+        <nav className="sidebar-nav">
+          {['Data', 'Analysis', 'Task B (coming)'].map((section) => {
+            const items = NAV.filter((n) => n.section === section);
+            return (
+              <div key={section}>
+                <div className="nav-section-label">{section}</div>
+                {items.map(({ to, label, icon: Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+                    id={`nav-${to.replace('/', '')}`}
+                  >
+                    <Icon size={15} className="nav-icon" />
+                    {label}
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className="sidebar-footer">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={toggle}
+            aria-label="Toggle light/dark theme"
+            id="theme-toggle"
+            style={{ width: '100%', justifyContent: 'center' }}
+          >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          </button>
         </div>
+      </aside>
+
+      {/* Header */}
+      <header className="app-header">
+        <span className="header-title">
+          {NAV.find((n) => n.to === location.pathname)?.label ?? 'ML Provenance'}
+        </span>
+        <ChainStatus />
         <button
           type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+          className="btn btn-ghost btn-sm"
+          onClick={toggle}
+          aria-label="Toggle theme"
+          id="header-theme-toggle"
+          style={{ marginLeft: 'var(--sp-2)' }}
         >
-          Count is {count}
+          {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
         </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {/* Main content — rendered by router */}
+      <main className="app-main">
+        <Outlet />
+      </main>
+    </div>
+  );
 }
-
-export default App
